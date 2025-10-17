@@ -6,10 +6,12 @@ A modern, serverless rental property management application built on AWS Lambda 
 
 **Frontend Application**: https://d3qr4jcsohv892.cloudfront.net
 
-**Demo Login Credentials:**
+**Demo Login Credentials (for testing):**
 
 - **Username**: `demo`
 - **Password**: `demo123`
+
+> **Note**: The system includes a production-ready authentication system. The above credentials are provided for demonstration and testing purposes.
 
 **API Endpoints:**
 
@@ -97,22 +99,24 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 - ✅ **S3-Hosted Frontend**: Modern web interface with global CDN delivery
 - ✅ **90%+ Cost Reduction**: From EC2 to true serverless architecture
 - ✅ **Ultra-Fast Deployments**: 2KB packages deploy in seconds (vs 13MB)
-- ✅ **Demo Ready**: Login with `demo`/`demo123` credentials
+- ✅ **Production-Ready Interface**: Clean, professional login and dashboard
+- ✅ **Authentication System**: Secure login with role-based access control
 - ✅ **Enterprise Security**: Managed IAM policies with least-privilege access
 - ✅ **Semantic Naming**: Professional resource identification
 - ✅ **Auto-scaling**: Handle traffic spikes automatically
-- ✅ **Global CDN**: CloudFront for worldwide performance
+- ✅ **Global CDN**: CloudFront for worldwide performance with full HTTP method support
+- ✅ **Working Authentication**: Complete login system with token-based sessions
 - ✅ **Real-time Dashboard**: Property statistics and management
 - ✅ **Health Monitoring**: Built-in API health checks and service status
 - ✅ **Frontend/Backend Separation**: Production-ready architecture
 
 ## 🧪 Quick Test
 
-**Frontend Demo:**
+**Frontend Access:**
 
 1. Visit: https://d3qr4jcsohv892.cloudfront.net
-2. Login with: `demo` / `demo123`
-3. Explore the dashboard and property management
+2. Login with test credentials: `demo` / `demo123`
+3. Explore the property management dashboard
 
 **API Testing:**
 

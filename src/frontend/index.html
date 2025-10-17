@@ -95,19 +95,6 @@
         width: 20px;
       }
 
-      .demo-badge {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-align: center;
-        margin-bottom: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-      }
-
       .api-status {
         display: flex;
         align-items: center;
@@ -178,15 +165,6 @@
         <h1 class="app-logo"><i class="fas fa-home"></i> Guhae</h1>
         <p class="app-subtitle">Smart Rental Property Management</p>
 
-        <!-- API Status -->
-        <div id="apiStatus" class="api-status">
-          <div class="loading-spinner"></div>
-          Checking API status...
-        </div>
-
-        <!-- Demo Badge -->
-        <div class="demo-badge"><i class="fas fa-star"></i> Demo Version</div>
-
         <!-- Error/Success Messages -->
         <div id="errorMessage" class="error-message"></div>
         <div id="successMessage" class="success-message"></div>
@@ -201,7 +179,7 @@
               type="text"
               class="form-control"
               id="username"
-              value="demo"
+              placeholder="Enter your username"
               required
             />
           </div>
@@ -214,7 +192,7 @@
               type="password"
               class="form-control"
               id="password"
-              value="demo123"
+              placeholder="Enter your password"
               required
             />
           </div>
@@ -254,25 +232,16 @@
             <span>Secure Cloud Infrastructure</span>
           </div>
         </div>
-
-        <!-- Demo Credentials Info -->
-        <div class="mt-3 text-center">
-          <small class="text-muted">
-            <i class="fas fa-info-circle"></i>
-            Demo credentials are pre-filled for easy testing
-          </small>
-        </div>
       </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      // Configuration - Get API base URL from current domain
+      // Configuration - Use CloudFront CDN for optimal performance
       const API_BASE_URL = `${window.location.protocol}//${window.location.host}/api`;
 
       // DOM Elements
       const loginForm = document.getElementById("loginForm");
-      const apiStatus = document.getElementById("apiStatus");
       const errorMessage = document.getElementById("errorMessage");
       const successMessage = document.getElementById("successMessage");
 
@@ -292,32 +261,6 @@
       function hideMessages() {
         errorMessage.style.display = "none";
         successMessage.style.display = "none";
-      }
-
-      // Check API health status
-      async function checkApiHealth() {
-        try {
-          const response = await fetch(`${API_BASE_URL}/health`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            apiStatus.innerHTML =
-              '<i class="fas fa-check-circle"></i> API Online - Ready to connect';
-            apiStatus.className = "api-status online";
-          } else {
-            throw new Error(`API returned ${response.status}`);
-          }
-        } catch (error) {
-          console.error("API Health Check Failed:", error);
-          apiStatus.innerHTML =
-            '<i class="fas fa-exclamation-triangle"></i> API Offline - Please try again later';
-          apiStatus.className = "api-status offline";
-        }
       }
 
       // Handle login form submission
@@ -389,9 +332,6 @@
 
       // Initialize the page
       document.addEventListener("DOMContentLoaded", function () {
-        // Check API health on page load
-        checkApiHealth();
-
         // Check if user is already logged in
         const authToken = localStorage.getItem("authToken");
         if (authToken) {
@@ -400,7 +340,7 @@
         }
       });
 
-      // Add some visual feedback for the demo
+      // Initialize page animations
       document.addEventListener("DOMContentLoaded", function () {
         // Add subtle animation to the welcome card
         const welcomeCard = document.querySelector(".welcome-card");

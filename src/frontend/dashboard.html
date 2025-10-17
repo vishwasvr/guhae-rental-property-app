@@ -276,6 +276,7 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      // Configuration - Use CloudFront CDN for optimal performance
       const API_BASE = window.location.origin;
 
       // Load dashboard data
@@ -381,8 +382,9 @@
 
       // Set current user
       function setCurrentUser() {
-        // For demo purposes, we'll use a default user
-        document.getElementById("currentUser").textContent = "Demo User";
+        // Get user from session or use default
+        const user = sessionStorage.getItem("currentUser") || "Administrator";
+        document.getElementById("currentUser").textContent = user;
       }
 
       // Initialize dashboard
