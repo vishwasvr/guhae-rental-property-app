@@ -1,0 +1,491 @@
+{% extends "base.html" %} {% block title %}{{ property.address }} - Guhae{%
+endblock %} {% block content %}
+<div class="container-fluid">
+  <!-- Navigation Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{{ url_for('frontend.index') }}">Dashboard</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{{ url_for('frontend.properties') }}">Properties</a>
+      </li>
+      <li class="breadcrumb-item active">{{ property.address }}</li>
+    </ol>
+  </nav>
+
+  <!-- Property Header -->
+  <div class="row mb-4">
+    <div class="col-lg-8">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h1 class="h3 mb-2">{{ property.address }}</h1>
+          <div class="d-flex align-items-center mb-2">
+            <span class="badge bg-secondary me-2"
+              >{{ property.property_type|title }}</span
+            >
+            {% if property.available %}
+            <span class="badge bg-success">Available</span>
+            {% else %}
+            <span class="badge bg-warning">Occupied</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-end">
+          <h2 class="text-success mb-0">
+            ${{ property.rent }}<small class="text-muted">/month</small>
+          </h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 text-lg-end">
+      <div class="btn-group" role="group">
+        <a
+          href="{{ url_for('frontend.edit_property', property_id=property.id) }}"
+          class="btn btn-warning"
+        >
+          <i class="fas fa-edit me-2"></i>Edit
+        </a>
+        <button
+          class="btn btn-danger"
+          onclick="deleteProperty('{{ property.id }}')"
+        >
+          <i class="fas fa-trash me-2"></i>Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Property Images -->
+    <div class="col-lg-8 mb-4">
+      {% if property.images %}
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-images me-2"></i>Property Images
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <div
+            id="propertyCarousel"
+            class="carousel slide"
+            data-bs-ride="carousel"
+          >
+            <div class="carousel-inner">
+              {% for image in property.images %}
+              <div class="carousel-item {{ 'active' if loop.first }}">
+                <img
+                  src="{{ image }}"
+                  class="d-block w-100"
+                  style="height: 400px; object-fit: cover"
+                  alt="Property Image"
+                />
+              </div>
+              {% endfor %}
+            </div>
+
+            {% if property.images|length > 1 %}
+            <button
+              class="carousel-control-prev"
+              type="button"
+              data-bs-target="#propertyCarousel"
+              data-bs-slide="prev"
+            >
+              <span class="carousel-control-prev-icon"></span>
+            </button>
+            <button
+              class="carousel-control-next"
+              type="button"
+              data-bs-target="#propertyCarousel"
+              data-bs-slide="next"
+            >
+              <span class="carousel-control-next-icon"></span>
+            </button>
+
+            <div class="carousel-indicators">
+              {% for image in property.images %}
+              <button
+                type="button"
+                data-bs-target="#propertyCarousel"
+                data-bs-slide-to="{{ loop.index0 }}"
+                class="{{ 'active' if loop.first }}"
+              ></button>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="card shadow">
+        <div class="card-body text-center py-5">
+          <i class="fas fa-camera fa-4x text-muted mb-3"></i>
+          <h5 class="text-muted">No Images Available</h5>
+          <p class="text-muted">
+            Upload some images to showcase this property.
+          </p>
+          <button class="btn btn-primary" onclick="uploadImages()">
+            <i class="fas fa-upload me-2"></i>Upload Images
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Property Description -->
+      {% if property.description %}
+      <div class="card shadow mt-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-file-alt me-2"></i>Description
+          </h6>
+        </div>
+        <div class="card-body">
+          <p class="mb-0">{{ property.description }}</p>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Amenities -->
+      {% if property.amenities %}
+      <div class="card shadow mt-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-star me-2"></i>Amenities
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            {% for amenity in property.amenities %}
+            <div class="col-md-6 mb-2">
+              <i class="fas fa-check text-success me-2"></i>{{
+              amenity|replace('_', ' ')|title }}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Property Details Sidebar -->
+    <div class="col-lg-4">
+      <!-- Property Features -->
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-info-circle me-2"></i>Property Details
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-4">
+              <div class="border-end">
+                <i class="fas fa-bed fa-2x text-primary mb-2"></i>
+                <h5 class="mb-0">{{ property.bedrooms }}</h5>
+                <small class="text-muted"
+                  >Bedroom{{ 's' if property.bedrooms != 1 }}</small
+                >
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="border-end">
+                <i class="fas fa-bath fa-2x text-primary mb-2"></i>
+                <h5 class="mb-0">{{ property.bathrooms }}</h5>
+                <small class="text-muted"
+                  >Bathroom{{ 's' if property.bathrooms != 1 }}</small
+                >
+              </div>
+            </div>
+            <div class="col-4">
+              <i class="fas fa-ruler-combined fa-2x text-primary mb-2"></i>
+              <h5 class="mb-0">
+                {% if property.square_feet %} {{ property.square_feet }} {% else
+                %} N/A {% endif %}
+              </h5>
+              <small class="text-muted">Sq Ft</small>
+            </div>
+          </div>
+
+          <hr />
+
+          <!-- Additional Details -->
+          <div class="row">
+            <div class="col-6">
+              <strong>Property Type:</strong>
+            </div>
+            <div class="col-6 text-end">{{ property.property_type|title }}</div>
+          </div>
+          <hr class="my-2" />
+
+          <div class="row">
+            <div class="col-6">
+              <strong>Monthly Rent:</strong>
+            </div>
+            <div class="col-6 text-end">
+              <strong class="text-success">${{ property.rent }}</strong>
+            </div>
+          </div>
+          <hr class="my-2" />
+
+          <div class="row">
+            <div class="col-6">
+              <strong>Availability:</strong>
+            </div>
+            <div class="col-6 text-end">
+              {% if property.available %}
+              <span class="badge bg-success">Available</span>
+              {% else %}
+              <span class="badge bg-warning">Occupied</span>
+              {% endif %}
+            </div>
+          </div>
+          <hr class="my-2" />
+
+          <div class="row">
+            <div class="col-6">
+              <strong>Added:</strong>
+            </div>
+            <div class="col-6 text-end">
+              <small class="text-muted">{{ property.created_at[:10] }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-bolt me-2"></i>Quick Actions
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            {% if property.available %}
+            <button class="btn btn-warning" onclick="toggleAvailability(false)">
+              <i class="fas fa-user-check me-2"></i>Mark as Occupied
+            </button>
+            {% else %}
+            <button class="btn btn-success" onclick="toggleAvailability(true)">
+              <i class="fas fa-home me-2"></i>Mark as Available
+            </button>
+            {% endif %}
+
+            <button class="btn btn-outline-primary" onclick="uploadImages()">
+              <i class="fas fa-camera me-2"></i>Manage Images
+            </button>
+
+            <button class="btn btn-outline-info">
+              <i class="fas fa-share me-2"></i>Share Property
+            </button>
+
+            <button class="btn btn-outline-secondary">
+              <i class="fas fa-download me-2"></i>Generate Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Property Stats -->
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-chart-line me-2"></i>Statistics
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="text-center">
+            <div class="row">
+              <div class="col-6">
+                <h4 class="text-primary">0</h4>
+                <small class="text-muted">Page Views</small>
+              </div>
+              <div class="col-6">
+                <h4 class="text-success">0</h4>
+                <small class="text-muted">Inquiries</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm Deletion</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Are you sure you want to delete this property? This action cannot be
+          undone and will remove all associated images and data.
+        </p>
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <strong>{{ property.address }}</strong> will be permanently deleted.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmDelete">
+          Delete Property
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Upload Modal -->
+<div class="modal fade" id="imageUploadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Upload Images</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <input
+          type="file"
+          class="form-control"
+          id="newImages"
+          multiple
+          accept="image/*"
+        />
+        <div class="form-text">
+          Select one or more images to upload for this property.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onclick="handleImageUpload()"
+        >
+          Upload Images
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<script>
+  function deleteProperty(propertyId) {
+    const deleteModal = new bootstrap.Modal(
+      document.getElementById("deleteModal")
+    );
+    deleteModal.show();
+
+    document.getElementById("confirmDelete").onclick = function () {
+      fetch(`/api/v1/properties/${propertyId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.message) {
+            window.location.href = "/properties";
+          } else {
+            alert(
+              "Error deleting property: " + (data.error || "Unknown error")
+            );
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          alert("Error deleting property");
+        });
+
+      deleteModal.hide();
+    };
+  }
+
+  function toggleAvailability(available) {
+    fetch(`/api/v1/properties/{{ property.id }}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ available: available }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.message) {
+          location.reload();
+        } else {
+          alert("Error updating property: " + (data.error || "Unknown error"));
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        alert("Error updating property availability");
+      });
+  }
+
+  function uploadImages() {
+    const imageUploadModal = new bootstrap.Modal(
+      document.getElementById("imageUploadModal")
+    );
+    imageUploadModal.show();
+  }
+
+  function handleImageUpload() {
+    const files = document.getElementById("newImages").files;
+    if (files.length === 0) {
+      alert("Please select at least one image.");
+      return;
+    }
+
+    // Upload each image
+    Array.from(files).forEach((file) => {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      fetch(`/api/v1/properties/{{ property.id }}/images`, {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.image_url) {
+            console.log("Image uploaded successfully");
+          }
+        })
+        .catch((error) => {
+          console.error("Error uploading image:", error);
+        });
+    });
+
+    // Close modal and reload page after a short delay
+    const imageUploadModal = bootstrap.Modal.getInstance(
+      document.getElementById("imageUploadModal")
+    );
+    imageUploadModal.hide();
+
+    setTimeout(() => {
+      location.reload();
+    }, 2000);
+  }
+</script>
+{% endblock %}

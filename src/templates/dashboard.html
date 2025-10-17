@@ -1,0 +1,242 @@
+{% extends "base.html" %} {% block title %}Dashboard - Guhae{% endblock %} {%
+block content %}
+<div class="container-fluid">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+      <i class="fas fa-tachometer-alt me-2 text-primary"></i>Dashboard
+    </h1>
+    <div class="text-muted">
+      <i class="fas fa-calendar me-1"></i>{{ current_time }}
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-primary text-uppercase mb-1"
+              >
+                Total Properties
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.total_properties }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-building fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-success text-uppercase mb-1"
+              >
+                Available Properties
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.available_properties }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-info text-uppercase mb-1"
+              >
+                Occupied Properties
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                {{ stats.occupied_properties }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-users fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body">
+          <div class="row no-gutters align-items-center">
+            <div class="col mr-2">
+              <div
+                class="text-xs font-weight-bold text-warning text-uppercase mb-1"
+              >
+                Monthly Revenue
+              </div>
+              <div class="h5 mb-0 font-weight-bold text-gray-800">
+                ${{ stats.monthly_revenue }}
+              </div>
+            </div>
+            <div class="col-auto">
+              <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity & Quick Actions -->
+  <div class="row">
+    <!-- Recent Properties -->
+    <div class="col-lg-8 mb-4">
+      <div class="card shadow">
+        <div
+          class="card-header py-3 d-flex justify-content-between align-items-center"
+        >
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-list me-2"></i>Recent Properties
+          </h6>
+          <a
+            href="{{ url_for('frontend.properties') }}"
+            class="btn btn-sm btn-primary"
+          >
+            View All <i class="fas fa-arrow-right ms-1"></i>
+          </a>
+        </div>
+        <div class="card-body">
+          {% if recent_properties %}
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Type</th>
+                  <th>Rent</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for property in recent_properties %}
+                <tr>
+                  <td>
+                    <strong>{{ property.address }}</strong>
+                  </td>
+                  <td>
+                    <span class="badge bg-secondary"
+                      >{{ property.property_type|title }}</span
+                    >
+                  </td>
+                  <td>
+                    <strong class="text-success">${{ property.rent }}</strong>
+                  </td>
+                  <td>
+                    {% if property.available %}
+                    <span class="badge bg-success">Available</span>
+                    {% else %}
+                    <span class="badge bg-warning">Occupied</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <a
+                      href="{{ url_for('frontend.view_property', property_id=property.id) }}"
+                      class="btn btn-sm btn-outline-primary"
+                    >
+                      <i class="fas fa-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-building fa-3x text-muted mb-3"></i>
+            <p class="text-muted">
+              No properties yet.
+              <a href="{{ url_for('frontend.add_property') }}"
+                >Add your first property</a
+              >
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-lg-4 mb-4">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-bolt me-2"></i>Quick Actions
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a
+              href="{{ url_for('frontend.add_property') }}"
+              class="btn btn-primary"
+            >
+              <i class="fas fa-plus me-2"></i>Add New Property
+            </a>
+            <a
+              href="{{ url_for('frontend.properties') }}"
+              class="btn btn-outline-primary"
+            >
+              <i class="fas fa-search me-2"></i>Search Properties
+            </a>
+            <a href="#" class="btn btn-outline-success">
+              <i class="fas fa-file-upload me-2"></i>Bulk Upload
+            </a>
+            <a href="#" class="btn btn-outline-info">
+              <i class="fas fa-download me-2"></i>Export Data
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Status -->
+      <div class="card shadow mt-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-cloud me-2"></i>System Status
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>Database</span>
+            <span class="badge bg-success">Online</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>File Storage</span>
+            <span class="badge bg-success">Online</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span>Cloud Services</span>
+            <span class="badge bg-success">Operational</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

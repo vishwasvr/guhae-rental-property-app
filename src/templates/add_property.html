@@ -1,0 +1,494 @@
+{% extends "base.html" %} {% block title %}Add Property - Guhae{% endblock %} {%
+block content %}
+<div class="container">
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+      <i class="fas fa-plus me-2 text-primary"></i>Add New Property
+    </h1>
+    <a href="{{ url_for('frontend.properties') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left me-2"></i>Back to Properties
+    </a>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-info-circle me-2"></i>Property Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <form id="propertyForm" enctype="multipart/form-data">
+            <div class="row">
+              <!-- Basic Information -->
+              <div class="col-md-12 mb-3">
+                <label for="address" class="form-label">
+                  <i class="fas fa-map-marker-alt me-1"></i>Address *
+                </label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="address"
+                  name="address"
+                  required
+                  placeholder="Enter full property address"
+                />
+                <div class="invalid-feedback"></div>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="property_type" class="form-label">
+                  <i class="fas fa-building me-1"></i>Property Type *
+                </label>
+                <select
+                  class="form-select"
+                  id="property_type"
+                  name="property_type"
+                  required
+                >
+                  <option value="">Select type...</option>
+                  <option value="apartment">Apartment</option>
+                  <option value="house">House</option>
+                  <option value="condo">Condo</option>
+                  <option value="townhouse">Townhouse</option>
+                  <option value="studio">Studio</option>
+                  <option value="other">Other</option>
+                </select>
+                <div class="invalid-feedback"></div>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="rent" class="form-label">
+                  <i class="fas fa-dollar-sign me-1"></i>Monthly Rent *
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="rent"
+                    name="rent"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                  />
+                </div>
+                <div class="invalid-feedback"></div>
+              </div>
+
+              <!-- Property Details -->
+              <div class="col-md-4 mb-3">
+                <label for="bedrooms" class="form-label">
+                  <i class="fas fa-bed me-1"></i>Bedrooms
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="bedrooms"
+                  name="bedrooms"
+                  min="0"
+                  max="20"
+                  value="1"
+                />
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label for="bathrooms" class="form-label">
+                  <i class="fas fa-bath me-1"></i>Bathrooms
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="bathrooms"
+                  name="bathrooms"
+                  min="0"
+                  max="20"
+                  step="0.5"
+                  value="1"
+                />
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label for="square_feet" class="form-label">
+                  <i class="fas fa-ruler-combined me-1"></i>Square Feet
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="square_feet"
+                  name="square_feet"
+                  min="0"
+                  max="50000"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <!-- Description -->
+              <div class="col-md-12 mb-3">
+                <label for="description" class="form-label">
+                  <i class="fas fa-file-alt me-1"></i>Description
+                </label>
+                <textarea
+                  class="form-control"
+                  id="description"
+                  name="description"
+                  rows="4"
+                  placeholder="Describe the property features, amenities, and any other relevant details..."
+                ></textarea>
+              </div>
+
+              <!-- Amenities -->
+              <div class="col-md-12 mb-3">
+                <label class="form-label">
+                  <i class="fas fa-star me-1"></i>Amenities
+                </label>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="parking"
+                        id="amenity_parking"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_parking"
+                        >Parking</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="laundry"
+                        id="amenity_laundry"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_laundry"
+                        >Laundry</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="pool"
+                        id="amenity_pool"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_pool"
+                        >Swimming Pool</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="gym"
+                        id="amenity_gym"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_gym"
+                        >Gym/Fitness</label
+                      >
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="pets_allowed"
+                        id="amenity_pets"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_pets"
+                        >Pets Allowed</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="air_conditioning"
+                        id="amenity_ac"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_ac"
+                        >Air Conditioning</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="balcony"
+                        id="amenity_balcony"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_balcony"
+                        >Balcony/Patio</label
+                      >
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="furnished"
+                        id="amenity_furnished"
+                        name="amenities"
+                      />
+                      <label class="form-check-label" for="amenity_furnished"
+                        >Furnished</label
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Property Images -->
+              <div class="col-md-12 mb-3">
+                <label for="images" class="form-label">
+                  <i class="fas fa-images me-1"></i>Property Images
+                </label>
+                <input
+                  type="file"
+                  class="form-control"
+                  id="images"
+                  name="images"
+                  multiple
+                  accept="image/*"
+                  onchange="previewImages(this)"
+                />
+                <div class="form-text">
+                  You can select multiple images. Supported formats: JPG, PNG,
+                  GIF, WebP
+                </div>
+
+                <!-- Image Preview -->
+                <div id="imagePreview" class="row mt-3"></div>
+              </div>
+
+              <!-- Availability -->
+              <div class="col-md-12 mb-4">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="true"
+                    id="available"
+                    name="available"
+                    checked
+                  />
+                  <label class="form-check-label" for="available">
+                    <i class="fas fa-check-circle me-1 text-success"></i>
+                    Property is currently available for rent
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+              <a
+                href="{{ url_for('frontend.properties') }}"
+                class="btn btn-secondary"
+              >
+                <i class="fas fa-times me-2"></i>Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-2"></i>Save Property
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Modal -->
+<div
+  class="modal fade"
+  id="loadingModal"
+  tabindex="-1"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <h5>Saving Property...</h5>
+        <p class="text-muted mb-0">
+          Please wait while we save your property to the cloud.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block extra_js %}
+<script>
+  function previewImages(input) {
+    const preview = document.getElementById("imagePreview");
+    preview.innerHTML = "";
+
+    if (input.files) {
+      Array.from(input.files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const col = document.createElement("div");
+          col.className = "col-md-3 mb-2";
+          col.innerHTML = `
+                    <div class="card">
+                        <img src="${e.target.result}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <small class="text-muted">${file.name}</small>
+                        </div>
+                    </div>
+                `;
+          preview.appendChild(col);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }
+
+  document
+    .getElementById("propertyForm")
+    .addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      // Show loading modal
+      const loadingModal = new bootstrap.Modal(
+        document.getElementById("loadingModal")
+      );
+      loadingModal.show();
+
+      // Collect form data
+      const formData = new FormData();
+
+      // Basic fields
+      formData.append("address", document.getElementById("address").value);
+      formData.append(
+        "property_type",
+        document.getElementById("property_type").value
+      );
+      formData.append(
+        "rent",
+        parseFloat(document.getElementById("rent").value)
+      );
+      formData.append(
+        "bedrooms",
+        parseInt(document.getElementById("bedrooms").value)
+      );
+      formData.append(
+        "bathrooms",
+        parseFloat(document.getElementById("bathrooms").value)
+      );
+      formData.append(
+        "description",
+        document.getElementById("description").value
+      );
+      formData.append(
+        "available",
+        document.getElementById("available").checked
+      );
+
+      // Optional fields
+      const squareFeet = document.getElementById("square_feet").value;
+      if (squareFeet) {
+        formData.append("square_feet", parseInt(squareFeet));
+      }
+
+      // Amenities
+      const amenities = [];
+      document
+        .querySelectorAll('input[name="amenities"]:checked')
+        .forEach((checkbox) => {
+          amenities.push(checkbox.value);
+        });
+      formData.append("amenities", JSON.stringify(amenities));
+
+      // Create property first
+      const propertyData = {
+        address: document.getElementById("address").value,
+        property_type: document.getElementById("property_type").value,
+        rent: parseFloat(document.getElementById("rent").value),
+        bedrooms: parseInt(document.getElementById("bedrooms").value),
+        bathrooms: parseFloat(document.getElementById("bathrooms").value),
+        description: document.getElementById("description").value,
+        available: document.getElementById("available").checked,
+        amenities: amenities,
+      };
+
+      if (squareFeet) {
+        propertyData.square_feet = parseInt(squareFeet);
+      }
+
+      fetch("/api/v1/properties", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(propertyData),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.property_id) {
+            // Upload images if any
+            const imageFiles = document.getElementById("images").files;
+            if (imageFiles.length > 0) {
+              return uploadImages(data.property_id, imageFiles);
+            } else {
+              return data.property_id;
+            }
+          } else {
+            throw new Error(data.error || "Failed to create property");
+          }
+        })
+        .then((propertyId) => {
+          loadingModal.hide();
+          // Show success message and redirect
+          alert("Property added successfully!");
+          window.location.href = "/properties";
+        })
+        .catch((error) => {
+          loadingModal.hide();
+          console.error("Error:", error);
+          alert("Error adding property: " + error.message);
+        });
+    });
+
+  async function uploadImages(propertyId, files) {
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append("image", files[i]);
+
+      try {
+        const response = await fetch(
+          `/api/v1/properties/${propertyId}/images`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          console.error(`Failed to upload image ${i + 1}`);
+        }
+      } catch (error) {
+        console.error(`Error uploading image ${i + 1}:`, error);
+      }
+    }
+
+    return propertyId;
+  }
+</script>
+{% endblock %}
