@@ -16,7 +16,7 @@ Resources:
         RestrictPublicBuckets: false
       WebsiteConfiguration:
         IndexDocument: index.html
-        ErrorDocument: error.html
+        ErrorDocument: index.html
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ["*"]
@@ -34,7 +34,7 @@ Resources:
           - Effect: Allow
             Principal: "*"
             Action: s3:GetObject
-            Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/static/*"
+            Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/*"
 
   # DynamoDB table for rental properties data
   RentalPropertiesTable:
@@ -198,12 +198,14 @@ Resources:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c # Managed-SimpleCORS
         CacheBehaviors:
           - PathPattern: "/api/*"
             TargetOriginId: ApiOrigin
             ViewerProtocolPolicy: https-only
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
             OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+            ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c # Managed-SimpleCORS
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt RentalPropertyAssetsBucket.RegionalDomainName
@@ -217,6 +219,10 @@ Resources:
             OriginPath: /prod
         Enabled: true
         DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
 
 Outputs:
   ApiGatewayUrl:
@@ -236,6 +242,12 @@ Outputs:
     Value: !Ref RentalPropertyAssetsBucket
     Export:
       Name: !Sub "${AWS::StackName}-StorageBucket"
+
+  StorageBucketName:
+    Description: "S3 bucket name for deployment script compatibility"
+    Value: !Ref RentalPropertyAssetsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-StorageBucketName"
 
   RentalPropertiesTableName:
     Description: "DynamoDB table for rental properties data"

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guhae - Rental Property Management</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .welcome-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .welcome-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 100%;
+        padding: 3rem;
+        margin: 1rem;
+      }
+
+      .app-logo {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 3rem;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .app-subtitle {
+        color: #666;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-weight: 300;
+      }
+
+      .login-form {
+        margin-top: 2rem;
+      }
+
+      .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+      }
+
+      .btn-login {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50px;
+        padding: 12px 2rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+      }
+
+      .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .features-list {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        color: #555;
+      }
+
+      .feature-icon {
+        color: #667eea;
+        margin-right: 0.5rem;
+        width: 20px;
+      }
+
+      .demo-badge {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="welcome-container">
+      <div class="welcome-card">
+        <!-- App Header -->
+        <div class="text-center mb-4">
+          <h1 class="app-logo"><i class="fas fa-home me-2"></i>Guhae</h1>
+          <p class="app-subtitle">Serverless Rental Property Management</p>
+          <span class="demo-badge">
+            <i class="fas fa-rocket me-1"></i>Live Demo
+          </span>
+        </div>
+
+        <!-- Login Form -->
+        <form class="login-form" id="loginForm">
+          <div class="mb-3">
+            <label for="username" class="form-label">
+              <i class="fas fa-user me-2"></i>Username
+            </label>
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              name="username"
+              placeholder="Enter your username"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label for="password" class="form-label">
+              <i class="fas fa-lock me-2"></i>Password
+            </label>
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              name="password"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-login">
+              <i class="fas fa-sign-in-alt me-2"></i>Login to Dashboard
+            </button>
+          </div>
+        </form>
+
+        <!-- Demo Credentials -->
+        <div class="text-center mt-3">
+          <small class="text-muted">
+            Demo: username: <code>demo</code>, password: <code>demo123</code>
+          </small>
+        </div>
+
+        <!-- Features -->
+        <div class="features-list">
+          <h6 class="text-center mb-3">
+            <i class="fas fa-star text-warning me-2"></i>Key Features
+          </h6>
+          <div class="feature-item">
+            <i class="fas fa-chart-line feature-icon"></i>
+            <span>Real-time property analytics</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-cloud feature-icon"></i>
+            <span>Serverless architecture (~$0.50/month)</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-shield-alt feature-icon"></i>
+            <span>Enterprise-grade security</span>
+          </div>
+          <div class="feature-item">
+            <i class="fas fa-globe feature-icon"></i>
+            <span>Global CDN delivery</span>
+          </div>
+        </div>
+
+        <!-- API Status -->
+        <div class="text-center mt-3">
+          <small class="text-muted">
+            API Status:
+            <span id="apiStatus" class="text-success">
+              <i class="fas fa-circle"></i> Online
+            </span>
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // API Base URL
+      const API_BASE = window.location.origin;
+
+      // Check API health on page load
+      async function checkApiHealth() {
+        try {
+          const response = await fetch(`${API_BASE}/api/health`);
+          const data = await response.json();
+
+          const statusElement = document.getElementById("apiStatus");
+          if (data.status === "healthy") {
+            statusElement.innerHTML = '<i class="fas fa-circle"></i> Online';
+            statusElement.className = "text-success";
+          } else {
+            statusElement.innerHTML =
+              '<i class="fas fa-exclamation-triangle"></i> Issues';
+            statusElement.className = "text-warning";
+          }
+        } catch (error) {
+          const statusElement = document.getElementById("apiStatus");
+          statusElement.innerHTML =
+            '<i class="fas fa-times-circle"></i> Offline';
+          statusElement.className = "text-danger";
+        }
+      }
+
+      // Handle login form submission
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const username = document.getElementById("username").value;
+          const password = document.getElementById("password").value;
+          const submitBtn = e.target.querySelector('button[type="submit"]');
+
+          // Show loading state
+          const originalText = submitBtn.innerHTML;
+          submitBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+          submitBtn.disabled = true;
+
+          try {
+            const response = await fetch(`${API_BASE}/api/auth/login`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ username, password }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+              // Store auth token if provided
+              if (result.token) {
+                localStorage.setItem("authToken", result.token);
+              }
+
+              // Redirect to dashboard
+              window.location.href = `${API_BASE}/dashboard`;
+            } else {
+              // Show error
+              alert(
+                result.message || "Login failed. Please check your credentials."
+              );
+            }
+          } catch (error) {
+            console.error("Login error:", error);
+            alert("Login failed. Please try again.");
+          } finally {
+            // Reset button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+          }
+        });
+
+      // Check API health when page loads
+      window.addEventListener("load", checkApiHealth);
+    </script>
+  </body>
+</html>

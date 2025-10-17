@@ -30,9 +30,9 @@ def lambda_handler(event, context):
                 'body': ''
             }
         
-        # Route requests
-        if path == '/' and method == 'GET':
-            return get_welcome_page(headers)
+        # Route API requests only
+        if path == '/api/auth/login' and method == 'POST':
+            return handle_login(event, headers)
         elif path == '/api/properties' and method == 'GET':
             return list_properties(headers)
         elif path == '/api/properties' and method == 'POST':
@@ -217,20 +217,56 @@ def format_property(item):
     formatted.setdefault('images', [])
     return formatted
 
-def get_welcome_page(headers):
-    """Return a welcome message for the root path"""
-    welcome_data = {
-        'message': 'Welcome to Guhae Rental Property Management API',
-        'version': '1.0.0',
-        'endpoints': {
-            'dashboard': '/api/dashboard',
-            'properties': '/api/properties',
-            'health': '/api/health'
-        },
-        'documentation': 'https://github.com/vishwasvr/guhae-rental-property-app'
-    }
-    return {
-        'statusCode': 200,
-        'headers': headers,
-        'body': json.dumps(welcome_data)
-    }
+def handle_login(event, headers):
+    """Handle user login authentication"""
+    try:
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        username = body.get('username', '').strip()
+        password = body.get('password', '').strip()
+        
+        # Simple demo authentication (in production, use proper password hashing)
+        valid_credentials = {
+            'demo': 'demo123',
+            'admin': 'admin123',
+            'user': 'password123'
+        }
+        
+        if username in valid_credentials and valid_credentials[username] == password:
+            # Successful login
+            response_data = {
+                'success': True,
+                'message': 'Login successful',
+                'user': {
+                    'username': username,
+                    'role': 'admin' if username == 'admin' else 'user'
+                },
+                'token': f'demo-token-{username}-{datetime.utcnow().timestamp()}'
+            }
+            
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps(response_data)
+            }
+        else:
+            # Invalid credentials
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Invalid username or password'
+                })
+            }
+            
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({
+                'success': False,
+                'message': 'Login error occurred',
+                'error': str(e)
+            })
+        }

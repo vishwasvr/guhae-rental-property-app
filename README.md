@@ -4,30 +4,58 @@ A modern, serverless rental property management application built on AWS Lambda 
 
 ## 🌐 Live Demo
 
+**Frontend Application**: https://d3qr4jcsohv892.cloudfront.net
+
+**Demo Login Credentials:**
+
+- **Username**: `demo`
+- **Password**: `demo123`
+
+**API Endpoints:**
+
 - **API Gateway**: https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod
-- **CloudFront CDN**: https://d3qr4jcsohv892.cloudfront.net
-- **Health Check**: `curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/health`
-- **Test Dashboard**: `curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/dashboard`
+- **Health Check**: `curl https://d3qr4jcsohv892.cloudfront.net/api/health`
+- **Dashboard API**: `curl https://d3qr4jcsohv892.cloudfront.net/api/dashboard`
+
+**Architecture:**
+
+- **Frontend**: S3 + CloudFront CDN (global edge caching)
+- **Backend**: Lambda + API Gateway (serverless)
 
 ## 🏗️ Architecture
 
-**Serverless Stack with Semantic Naming:**
+**S3-Hosted Frontend + Serverless Backend:**
 
-- **RentalPropertyApiHandler** - Lambda function for API backend (pay-per-request)
-- **RentalPropertyApiGateway** - REST API endpoints with proper routing
+- **RentalPropertyAssetsBucket** - S3 bucket for frontend hosting & property assets
+- **RentalPropertyWebDistribution** - CloudFront CDN for global frontend delivery
+- **RentalPropertyApiHandler** - Lambda function for API backend (2KB package)
+- **RentalPropertyApiGateway** - REST API endpoints with /api/\* routing
 - **RentalPropertiesTable** - DynamoDB table for rental data (pay-per-request)
-- **RentalPropertyAssetsBucket** - S3 bucket for static files & property assets
-- **RentalPropertyWebDistribution** - CloudFront CDN for global delivery
 - **RentalPropertyLambdaExecutionRole** - IAM role with least-privilege permissions
+
+**Request Flow:**
+
+1. `yourdomain.com/` → CloudFront → S3 (frontend files)
+2. `yourdomain.com/api/*` → CloudFront → API Gateway → Lambda (backend)
 
 ## 💰 Cost Structure
 
-- **Idle Cost**: ~$0.50/month (90%+ reduction from EC2-based solutions)
-- **1,000 users/month**: ~$2/month
-- **10,000 users/month**: ~$8/month
-- **100,000 users/month**: ~$35/month
+**Monthly Costs (Pay-per-use):**
 
-_Compared to traditional EC2 deployment: $9.11/month baseline_
+- **Idle Cost**: ~$0.50-$2.00/month (90%+ reduction vs EC2)
+- **1,000 page views**: ~$0.50/month
+- **10,000 page views**: ~$2.00/month
+- **100,000 page views**: ~$15.00/month
+
+**Breakdown:**
+
+- **Lambda**: $0.0000166667/request + $0.0000000021/MB-ms
+- **API Gateway**: $3.50/million requests
+- **CloudFront**: $0.085/GB + $0.0075/10k requests
+- **DynamoDB**: $0.25/million reads, $1.25/million writes
+- **S3**: $0.023/GB storage + $0.0004/1k requests
+
+_Compared to traditional EC2 deployment: $9.11/month baseline + compute costs_
 
 ## 🚀 Quick Start
 
@@ -53,34 +81,49 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 
 ## 📚 Documentation
 
-| **Topic**               | **Link**                                           | **Description**                      |
-| ----------------------- | -------------------------------------------------- | ------------------------------------ |
-| **🔐 Security Setup**   | [docs/SECURITY.md](docs/SECURITY.md)               | IAM user creation & managed policies |
-| **🚀 Deployment Guide** | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)           | Step-by-step deployment process      |
-| **🧪 API Reference**    | [docs/API.md](docs/API.md)                         | Complete API endpoint documentation  |
-| **🚨 Troubleshooting**  | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & solutions            |
-| **🔧 Development**      | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)         | Local development setup              |
-| **🏗️ Architecture**     | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | Detailed system design               |
+| **Topic**                   | **Link**                                                                 | **Description**                         |
+| --------------------------- | ------------------------------------------------------------------------ | --------------------------------------- |
+| **🔐 Security Setup**       | [docs/SECURITY.md](docs/SECURITY.md)                                     | IAM user creation & managed policies    |
+| **🚀 Deployment Guide**     | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                                 | Step-by-step deployment process         |
+| **🌐 S3 Frontend**          | [docs/S3_FRONTEND_IMPLEMENTATION.md](docs/S3_FRONTEND_IMPLEMENTATION.md) | S3-hosted frontend architecture details |
+| **✅ Deployment Readiness** | [DEPLOYMENT_READINESS_CHECK.md](DEPLOYMENT_READINESS_CHECK.md)           | Complete system validation checklist    |
+| **🧪 API Reference**        | [docs/API.md](docs/API.md)                                               | Complete API endpoint documentation     |
+| **🚨 Troubleshooting**      | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)                       | Common issues & solutions               |
+| **🔧 Development**          | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                               | Local development setup                 |
+| **🏗️ Architecture**         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Detailed system design                  |
 
 ## ✨ Key Features
 
-- ✅ **90%+ Cost Reduction**: From EC2 to serverless architecture
-- ✅ **Ultra-Fast Deployments**: 2KB packages deploy in seconds (vs 13MB taking minutes)
+- ✅ **S3-Hosted Frontend**: Modern web interface with global CDN delivery
+- ✅ **90%+ Cost Reduction**: From EC2 to true serverless architecture
+- ✅ **Ultra-Fast Deployments**: 2KB packages deploy in seconds (vs 13MB)
+- ✅ **Demo Ready**: Login with `demo`/`demo123` credentials
 - ✅ **Enterprise Security**: Managed IAM policies with least-privilege access
 - ✅ **Semantic Naming**: Professional resource identification
 - ✅ **Auto-scaling**: Handle traffic spikes automatically
 - ✅ **Global CDN**: CloudFront for worldwide performance
 - ✅ **Real-time Dashboard**: Property statistics and management
 - ✅ **Health Monitoring**: Built-in API health checks and service status
+- ✅ **Frontend/Backend Separation**: Production-ready architecture
 
-## 🧪 Quick API Test
+## 🧪 Quick Test
+
+**Frontend Demo:**
+
+1. Visit: https://d3qr4jcsohv892.cloudfront.net
+2. Login with: `demo` / `demo123`
+3. Explore the dashboard and property management
+
+**API Testing:**
 
 ```bash
-# Test the live API
-curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/
+# Test via CloudFront (production routing)
+curl https://d3qr4jcsohv892.cloudfront.net/api/health
+curl https://d3qr4jcsohv892.cloudfront.net/api/dashboard
+curl https://d3qr4jcsohv892.cloudfront.net/api/properties
+
+# Direct API Gateway (development)
 curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/health
-curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/dashboard
-curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties
 ```
 
 ## 🤝 Contributing
