@@ -10,6 +10,49 @@ Complete API documentation for the Guhae rental property management system.
 
 ## API Endpoints
 
+### 🔍 System Status
+
+#### Health Check
+
+```http
+GET /api/health
+```
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-10-17T06:09:26.312203Z",
+  "version": "1.0.0",
+  "services": {
+    "database": "healthy",
+    "storage": "healthy"
+  }
+}
+```
+
+#### Welcome/Info
+
+```http
+GET /
+```
+
+**Response:**
+
+```json
+{
+  "message": "Welcome to Guhae Rental Property Management API",
+  "version": "1.0.0",
+  "endpoints": {
+    "dashboard": "/api/dashboard",
+    "properties": "/api/properties",
+    "health": "/api/health"
+  },
+  "documentation": "https://github.com/vishwasvr/guhae-rental-property-app"
+}
+```
+
 ### 🏠 Properties Management
 
 #### Get All Properties

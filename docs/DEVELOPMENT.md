@@ -148,8 +148,7 @@ guhae-rental-property-app/
 ├── deployment/                   # Deployment scripts
 │   ├── cloudformation-serverless.yaml  # Infrastructure template
 │   ├── deploy-serverless.sh      # Deployment script
-│   ├── guhae-minimal-policy.json # IAM permissions
-│   └── guhae-update-only-policy.json   # Update permissions
+│   └── guhae-deployment-policy.json # IAM permissions
 ├── docs/                         # Documentation
 ├── requirements.txt              # Python dependencies
 └── README.md                     # Project overview

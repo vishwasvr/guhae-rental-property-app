@@ -43,17 +43,53 @@ cloudformation:CreateStack
 An error occurred (InvalidParameterValueException): Unzipped size must be smaller than 262144000 bytes
 ```
 
-**Solution**: Optimize dependencies
+**Solution**: Use optimized deployment process
 
 ```bash
-# Remove unnecessary packages
-pip install --target ./package --upgrade --only-binary=all --no-deps package_name
+# The deployment script now uses optimized 2KB packages
+./deploy-serverless.sh code   # Fast code-only updates
 
-# Use Lambda layers for common dependencies
-# Exclude development dependencies from requirements.txt
+# Avoid bundling AWS runtime libraries (boto3, etc.)
+# Use AWS Lambda runtime dependencies instead
+```
+
+#### Deployment Hanging on Lambda Updates
+
+**Problem**: Script appears to hang during Lambda function updates
+
+```bash
+📤 Uploading Lambda function code...
+⏳ Waiting for function update to complete...
+# (hangs here indefinitely)
+```
+
+**Solution**: The deployment script now includes proper wait logic and timeouts
+
+```bash
+# Use the updated deployment script with status checking
+./deploy-serverless.sh code
+
+# If still hanging, check function status manually:
+aws lambda get-function --function-name FUNCTION_NAME --query 'Configuration.State'
 ```
 
 ### 🌐 API Issues
+
+#### "Missing Authentication Token" Error
+
+**Problem**: API returns authentication error on root path
+
+```bash
+curl https://YOUR-API-URL/
+{"message":"Missing Authentication Token"}
+```
+
+**Solution**: Deploy infrastructure updates to activate root path routing
+
+```bash
+./deploy-serverless.sh infrastructure
+# Root path (/) should now return welcome message
+```
 
 #### "Not Found" Response
 
@@ -139,7 +175,7 @@ aws iam get-policy-version --policy-arn arn:aws:iam::ACCOUNT:policy/GuhaeMinimal
 
 # Update managed policy if needed
 aws iam create-policy-version --policy-arn arn:aws:iam::ACCOUNT:policy/GuhaeMinimalPolicy \
-  --policy-document file://guhae-minimal-policy.json --set-as-default
+  --policy-document file://guhae-deployment-policy.json --set-as-default
 ```
 
 #### Table Not Found

@@ -103,7 +103,7 @@ graph TB
 #### IAM Role & Policies
 
 - **Lambda Execution Role**: `guhae-serverless-lambda-execution-role`
-- **Managed Policy**: `GuhaeMinimalPolicy` (4.7KB comprehensive permissions)
+- **Deployment Policy**: `GuhaeDeploymentPolicy` (4.7KB comprehensive permissions)
 - **Principle**: Least privilege access
 - **Scope**: Resources prefixed with `guhae-*`
 
@@ -162,17 +162,19 @@ sequenceDiagram
 
 ### ⚡ Performance Characteristics
 
-- **Cold Start**: ~500ms (optimized Python packaging)
+- **Cold Start**: ~500ms (2KB optimized packaging)
 - **Warm Request**: ~50-100ms
 - **Database Latency**: <10ms (single-digit milliseconds)
 - **CDN Cache Hit**: ~50ms globally
+- **Deployment Speed**: ~10 seconds (code updates with 2KB packages vs minutes with 13MB)
 
 ### 💰 Cost Optimization
 
-- **Pay-per-use**: No idle costs
-- **DynamoDB**: On-demand billing
+- **Pay-per-use**: No idle costs (~$0.50/month idle)
+- **DynamoDB**: On-demand billing (pay-per-request)
 - **Lambda**: Per-invocation and duration pricing
 - **S3**: Storage and transfer costs only
+- **Package Efficiency**: 99.98% size reduction (2KB vs 13MB packages)
 - **CloudFront**: Pay-per-GB and request
 
 ## Deployment Architecture

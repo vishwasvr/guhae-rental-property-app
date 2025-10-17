@@ -20,7 +20,7 @@ Create the managed policy from our comprehensive permissions file:
 cd deployment
 aws iam create-policy \
   --policy-name GuhaeDeploymentPolicy \
-  --policy-document file://guhae-minimal-policy.json \
+  --policy-document file://guhae-deployment-policy.json \
   --description "Managed policy for Guhae rental property app deployment with least-privilege permissions"
 ```
 
@@ -49,7 +49,7 @@ aws configure --profile guhae-deployment
 
 ## Policy Details
 
-Our comprehensive policy (`guhae-minimal-policy.json`) includes:
+Our comprehensive policy (`guhae-deployment-policy.json`) includes:
 
 - **S3 Operations**: Bucket management, object operations for `guhae-*` resources
 - **DynamoDB Operations**: Table management for rental properties data
@@ -76,19 +76,8 @@ If you need to update permissions later:
 # Update the managed policy
 aws iam create-policy-version \
   --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/GuhaeDeploymentPolicy \
-  --policy-document file://guhae-minimal-policy.json \
+  --policy-document file://guhae-deployment-policy.json \
   --set-as-default
-```
-
-## Alternative: Minimal Update-Only Policy
-
-For environments where you only need to update existing resources:
-
-```bash
-# Use the smaller update-only policy
-aws iam create-policy \
-  --policy-name GuhaeUpdateOnlyPolicy \
-  --policy-document file://guhae-update-only-policy.json
 ```
 
 ## Cleanup

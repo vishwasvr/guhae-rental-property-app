@@ -6,6 +6,7 @@ A modern, serverless rental property management application built on AWS Lambda 
 
 - **API Gateway**: https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod
 - **CloudFront CDN**: https://d3qr4jcsohv892.cloudfront.net
+- **Health Check**: `curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/health`
 - **Test Dashboard**: `curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/dashboard`
 
 ## 🏗️ Architecture
@@ -64,16 +65,20 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 ## ✨ Key Features
 
 - ✅ **90%+ Cost Reduction**: From EC2 to serverless architecture
+- ✅ **Ultra-Fast Deployments**: 2KB packages deploy in seconds (vs 13MB taking minutes)
 - ✅ **Enterprise Security**: Managed IAM policies with least-privilege access
 - ✅ **Semantic Naming**: Professional resource identification
 - ✅ **Auto-scaling**: Handle traffic spikes automatically
 - ✅ **Global CDN**: CloudFront for worldwide performance
 - ✅ **Real-time Dashboard**: Property statistics and management
+- ✅ **Health Monitoring**: Built-in API health checks and service status
 
 ## 🧪 Quick API Test
 
 ```bash
 # Test the live API
+curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/
+curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/health
 curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/dashboard
 curl https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties
 ```

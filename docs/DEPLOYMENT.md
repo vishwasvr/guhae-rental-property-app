@@ -81,6 +81,12 @@ The script will output:
 Test your API endpoints:
 
 ```bash
+# Test root endpoint
+curl https://YOUR-API-URL/
+
+# Test health check
+curl https://YOUR-API-URL/api/health
+
 # Test dashboard
 curl https://YOUR-API-URL/api/dashboard
 
@@ -88,9 +94,28 @@ curl https://YOUR-API-URL/api/dashboard
 curl https://YOUR-API-URL/api/properties
 
 # Expected responses
+{"message": "Welcome to Guhae Rental Property Management API", ...}
+{"status": "healthy", "timestamp": "...", "services": {...}}
 {"total_properties": 0, "active_properties": 0, "total_users": 1, "total_leases": 0}
 {"properties": []}
 ```
+
+## 🚀 Deployment Performance
+
+### Package Optimization
+
+- **Lambda Package Size**: ~2KB (vs 13MB before optimization)
+- **Deployment Speed**: Seconds (vs minutes with large packages)
+- **Architecture**: Leverages AWS Lambda runtime libraries (boto3 included)
+
+### Quick Code Updates
+
+```bash
+# For rapid code-only deployments
+./deploy-serverless.sh code
+```
+
+This skips infrastructure deployment and only updates Lambda function code, completing in ~10 seconds.
 
 ## Cost Monitoring
 

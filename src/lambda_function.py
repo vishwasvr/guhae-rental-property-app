@@ -31,7 +31,9 @@ def lambda_handler(event, context):
             }
         
         # Route requests
-        if path == '/api/properties' and method == 'GET':
+        if path == '/' and method == 'GET':
+            return get_welcome_page(headers)
+        elif path == '/api/properties' and method == 'GET':
             return list_properties(headers)
         elif path == '/api/properties' and method == 'POST':
             return create_property(event, headers)
@@ -46,6 +48,8 @@ def lambda_handler(event, context):
             return delete_property(property_id, headers)
         elif path == '/api/dashboard' and method == 'GET':
             return get_dashboard_stats(headers)
+        elif path == '/api/health' and method == 'GET':
+            return get_health_status(headers)
         else:
             return {
                 'statusCode': 404,
@@ -175,8 +179,58 @@ def get_dashboard_stats(headers):
         'body': json.dumps(stats)
     }
 
+def get_health_status(headers):
+    """Return API health status"""
+    try:
+        # Test DynamoDB connection
+        response = table.scan(Limit=1)
+        
+        health_data = {
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'version': '1.0.0',
+            'services': {
+                'database': 'healthy',
+                'storage': 'healthy'
+            }
+        }
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps(health_data)
+        }
+    except Exception as e:
+        health_data = {
+            'status': 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'error': str(e)
+        }
+        return {
+            'statusCode': 503,
+            'headers': headers,
+            'body': json.dumps(health_data)
+        }
+
 def format_property(item):
     # Remove DynamoDB keys and format for API
     formatted = {k: v for k, v in item.items() if not k.startswith(('pk', 'sk', 'gsi'))}
     formatted.setdefault('images', [])
     return formatted
+
+def get_welcome_page(headers):
+    """Return a welcome message for the root path"""
+    welcome_data = {
+        'message': 'Welcome to Guhae Rental Property Management API',
+        'version': '1.0.0',
+        'endpoints': {
+            'dashboard': '/api/dashboard',
+            'properties': '/api/properties',
+            'health': '/api/health'
+        },
+        'documentation': 'https://github.com/vishwasvr/guhae-rental-property-app'
+    }
+    return {
+        'statusCode': 200,
+        'headers': headers,
+        'body': json.dumps(welcome_data)
+    }

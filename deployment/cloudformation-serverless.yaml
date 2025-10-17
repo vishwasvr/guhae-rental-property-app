@@ -139,10 +139,24 @@ Resources:
   RentalPropertyApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
+      - RentalPropertyApiRootMethod
       - RentalPropertyApiProxyMethod
     Properties:
       RestApiId: !Ref RentalPropertyApiGateway
       StageName: prod
+
+  # API Gateway root method for handling "/" path
+  RentalPropertyApiRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RentalPropertyApiGateway
+      ResourceId: !GetAtt RentalPropertyApiGateway.RootResourceId
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RentalPropertyApiHandler.Arn}/invocations"
 
   # API Gateway catch-all proxy resource
   RentalPropertyApiProxyResource:
@@ -172,7 +186,7 @@ Resources:
       FunctionName: !Ref RentalPropertyApiHandler
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RentalPropertyApiGateway}/*/ANY/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RentalPropertyApiGateway}/*/*"
 
   # CloudFront Distribution for global CDN and static hosting
   RentalPropertyWebDistribution:
