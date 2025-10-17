@@ -7,8 +7,12 @@ from datetime import datetime
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
 s3_client = boto3.client('s3')
+cognito_client = boto3.client('cognito-idp')
+
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE_NAME'])
 bucket_name = os.environ['S3_BUCKET_NAME']
+user_pool_id = os.environ['COGNITO_USER_POOL_ID']
+client_id = os.environ['COGNITO_CLIENT_ID']
 
 def lambda_handler(event, context):
     # CORS headers - define first for error handling
@@ -33,6 +37,8 @@ def lambda_handler(event, context):
         # Route API requests only
         if path == '/api/auth/login' and method == 'POST':
             return handle_login(event, headers)
+        elif path == '/api/auth/register' and method == 'POST':
+            return handle_register(event, headers)
         elif path == '/api/properties' and method == 'GET':
             return list_properties(headers)
         elif path == '/api/properties' and method == 'POST':
@@ -218,30 +224,58 @@ def format_property(item):
     return formatted
 
 def handle_login(event, headers):
-    """Handle user login authentication"""
+    """Handle user login authentication with Cognito"""
     try:
         # Parse request body
         body = json.loads(event.get('body', '{}'))
         username = body.get('username', '').strip()
         password = body.get('password', '').strip()
         
-        # Simple demo authentication (in production, use proper password hashing)
-        valid_credentials = {
-            'demo': 'demo123',
-            'admin': 'admin123',
-            'user': 'password123'
-        }
+        if not username or not password:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Username and password are required'
+                })
+            }
         
-        if username in valid_credentials and valid_credentials[username] == password:
+        try:
+            # Authenticate with Cognito
+            response = cognito_client.admin_initiate_auth(
+                UserPoolId=user_pool_id,
+                ClientId=client_id,
+                AuthFlow='ADMIN_NO_SRP_AUTH',
+                AuthParameters={
+                    'USERNAME': username,
+                    'PASSWORD': password
+                }
+            )
+            
+            # Get user attributes
+            user_response = cognito_client.admin_get_user(
+                UserPoolId=user_pool_id,
+                Username=username
+            )
+            
+            # Extract user info
+            user_attributes = {attr['Name']: attr['Value'] for attr in user_response['UserAttributes']}
+            
             # Successful login
             response_data = {
                 'success': True,
                 'message': 'Login successful',
                 'user': {
                     'username': username,
-                    'role': 'admin' if username == 'admin' else 'user'
+                    'email': user_attributes.get('email', ''),
+                    'role': 'user'  # You can enhance this with custom attributes
                 },
-                'token': f'demo-token-{username}-{datetime.utcnow().timestamp()}'
+                'tokens': {
+                    'access_token': response['AuthenticationResult']['AccessToken'],
+                    'id_token': response['AuthenticationResult']['IdToken'],
+                    'refresh_token': response['AuthenticationResult']['RefreshToken']
+                }
             }
             
             return {
@@ -249,8 +283,8 @@ def handle_login(event, headers):
                 'headers': headers,
                 'body': json.dumps(response_data)
             }
-        else:
-            # Invalid credentials
+            
+        except cognito_client.exceptions.NotAuthorizedException:
             return {
                 'statusCode': 401,
                 'headers': headers,
@@ -259,14 +293,125 @@ def handle_login(event, headers):
                     'message': 'Invalid username or password'
                 })
             }
+        except cognito_client.exceptions.UserNotFoundException:
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'User not found'
+                })
+            }
+        except Exception as cognito_error:
+            print(f"Cognito error: {str(cognito_error)}")
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Authentication failed'
+                })
+            }
             
     except Exception as e:
+        print(f"Login error: {str(e)}")
         return {
             'statusCode': 500,
             'headers': headers,
             'body': json.dumps({
                 'success': False,
                 'message': 'Login error occurred',
+                'error': str(e)
+            })
+        }
+
+def handle_register(event, headers):
+    """Handle user registration with Cognito"""
+    try:
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        username = body.get('username', '').strip()
+        password = body.get('password', '').strip()
+        email = body.get('email', '').strip()
+        
+        if not username or not password or not email:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Username, password, and email are required'
+                })
+            }
+        
+        try:
+            # Create user in Cognito
+            response = cognito_client.admin_create_user(
+                UserPoolId=user_pool_id,
+                Username=username,
+                MessageAction='SUPPRESS',  # Don't send welcome email
+                TemporaryPassword=password,
+                UserAttributes=[
+                    {
+                        'Name': 'email',
+                        'Value': email
+                    },
+                    {
+                        'Name': 'email_verified',
+                        'Value': 'true'
+                    }
+                ]
+            )
+            
+            # Set permanent password
+            cognito_client.admin_set_user_password(
+                UserPoolId=user_pool_id,
+                Username=username,
+                Password=password,
+                Permanent=True
+            )
+            
+            return {
+                'statusCode': 201,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': True,
+                    'message': 'User registered successfully',
+                    'user': {
+                        'username': username,
+                        'email': email
+                    }
+                })
+            }
+            
+        except cognito_client.exceptions.UsernameExistsException:
+            return {
+                'statusCode': 409,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Username already exists'
+                })
+            }
+        except Exception as cognito_error:
+            print(f"Cognito registration error: {str(cognito_error)}")
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Registration failed'
+                })
+            }
+            
+    except Exception as e:
+        print(f"Registration error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({
+                'success': False,
+                'message': 'Registration error occurred',
                 'error': str(e)
             })
         }

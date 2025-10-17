@@ -376,15 +376,29 @@
 
       // Logout function
       function logout() {
-        localStorage.removeItem("authToken");
+        // Clear all Cognito tokens
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("idToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userInfo");
         window.location.href = `${API_BASE}/`;
       }
 
       // Set current user
       function setCurrentUser() {
-        // Get user from session or use default
-        const user = sessionStorage.getItem("currentUser") || "Administrator";
-        document.getElementById("currentUser").textContent = user;
+        // Get user info from Cognito tokens
+        const userInfo = localStorage.getItem("userInfo");
+        if (userInfo) {
+          try {
+            const user = JSON.parse(userInfo);
+            document.getElementById("currentUser").textContent =
+              user.email || "User";
+          } catch (e) {
+            document.getElementById("currentUser").textContent = "User";
+          }
+        } else {
+          document.getElementById("currentUser").textContent = "User";
+        }
       }
 
       // Initialize dashboard

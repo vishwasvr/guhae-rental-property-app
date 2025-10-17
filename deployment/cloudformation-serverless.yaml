@@ -36,6 +36,48 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/*"
 
+  # Cognito User Pool for authentication
+  RentalPropertyUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-user-pool"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      UserPoolTags:
+        Name: !Sub "${AWS::StackName}-user-pool"
+
+  # Cognito User Pool Client
+  RentalPropertyUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-app-client"
+      UserPoolId: !Ref RentalPropertyUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      AccessTokenValidity: 24
+      IdTokenValidity: 24
+      RefreshTokenValidity: 30
+
   # DynamoDB table for rental properties data
   RentalPropertiesTable:
     Type: AWS::DynamoDB::Table
@@ -104,6 +146,14 @@ Resources:
                 Action:
                   - s3:ListBucket
                 Resource: !GetAtt RentalPropertyAssetsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminInitiateAuth
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:ListUsers
+                Resource: !GetAtt RentalPropertyUserPool.Arn
 
   # API Gateway for REST API
   RentalPropertyApiGateway:
@@ -129,6 +179,8 @@ Resources:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref RentalPropertiesTable
           S3_BUCKET_NAME: !Ref RentalPropertyAssetsBucket
+          COGNITO_USER_POOL_ID: !Ref RentalPropertyUserPool
+          COGNITO_CLIENT_ID: !Ref RentalPropertyUserPoolClient
       Code:
         ZipFile: |
           # Placeholder - actual code will be packaged by deployment script
@@ -262,3 +314,15 @@ Outputs:
     Value: !Ref RentalPropertyApiHandler
     Export:
       Name: !Sub "${AWS::StackName}-RentalPropertyApiHandler"
+
+  CognitoUserPoolId:
+    Description: "Cognito User Pool ID for authentication"
+    Value: !Ref RentalPropertyUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoUserPoolId"
+
+  CognitoClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref RentalPropertyUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoClientId"

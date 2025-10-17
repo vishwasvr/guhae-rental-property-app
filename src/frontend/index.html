@@ -50,8 +50,39 @@
         font-weight: 300;
       }
 
-      .login-form {
+      .auth-form {
         margin-top: 2rem;
+      }
+
+      .auth-tabs {
+        display: flex;
+        margin-bottom: 1rem;
+        border-radius: 50px;
+        background: #f8f9fa;
+        padding: 4px;
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 10px 20px;
+        border: none;
+        background: transparent;
+        border-radius: 50px;
+        font-weight: 500;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .tab-button.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+      }
+
+      .tab-button:hover:not(.active) {
+        color: #667eea;
+        background: rgba(102, 126, 234, 0.1);
       }
 
       .form-control:focus {
@@ -59,7 +90,7 @@
         box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
       }
 
-      .btn-login {
+      .auth-button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border: none;
         border-radius: 50px;
@@ -68,9 +99,11 @@
         text-transform: uppercase;
         letter-spacing: 1px;
         transition: all 0.3s ease;
+        color: white;
+        width: 100%;
       }
 
-      .btn-login:hover {
+      .auth-button:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
       }
@@ -170,38 +203,69 @@
         <div id="successMessage" class="success-message"></div>
 
         <!-- Login Form -->
-        <form id="loginForm" class="login-form">
-          <div class="mb-3">
-            <label for="username" class="form-label">
-              <i class="fas fa-user"></i> Username
-            </label>
-            <input
-              type="text"
-              class="form-control"
-              id="username"
-              placeholder="Enter your username"
-              required
-            />
+        <h2 class="login-title">Welcome to Guhae Property Management</h2>
+        <p class="login-subtitle">
+          Secure and efficient rental property management platform
+        </p>
+
+        <div id="authTabs" class="auth-tabs">
+          <button class="tab-button active" onclick="showLogin()">
+            Sign In
+          </button>
+          <button class="tab-button" onclick="showRegister()">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form" style="display: block">
+          <div class="form-group">
+            <label for="loginEmail">Email:</label>
+            <input type="email" id="loginEmail" name="email" required />
           </div>
 
-          <div class="mb-4">
-            <label for="password" class="form-label">
-              <i class="fas fa-lock"></i> Password
-            </label>
+          <div class="form-group">
+            <label for="loginPassword">Password:</label>
             <input
               type="password"
-              class="form-control"
-              id="password"
-              placeholder="Enter your password"
+              id="loginPassword"
+              name="password"
               required
             />
           </div>
 
-          <button type="submit" class="btn btn-primary btn-login w-100">
-            <i class="fas fa-sign-in-alt"></i> Sign In
-          </button>
+          <button type="submit" class="auth-button">Sign In</button>
         </form>
 
+        <!-- Register Form -->
+        <form id="registerForm" class="auth-form" style="display: none">
+          <div class="form-group">
+            <label for="registerEmail">Email:</label>
+            <input type="email" id="registerEmail" name="email" required />
+          </div>
+
+          <div class="form-group">
+            <label for="registerPassword">Password:</label>
+            <input
+              type="password"
+              id="registerPassword"
+              name="password"
+              required
+              minlength="8"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password:</label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              minlength="8"
+            />
+          </div>
+
+          <button type="submit" class="auth-button">Register</button>
+        </form>
         <!-- Features List -->
         <div class="features-list">
           <h6 class="text-center mb-3">
@@ -264,84 +328,185 @@
       }
 
       // Handle login form submission
-      async function handleLogin(event) {
-        event.preventDefault();
-        hideMessages();
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
 
-        const username = document.getElementById("username").value;
-        const password = document.getElementById("password").value;
+          const email = document.getElementById("loginEmail").value;
+          const password = document.getElementById("loginPassword").value;
 
-        // Basic validation
-        if (!username || !password) {
-          showError("Please enter both username and password");
-          return;
-        }
-
-        // Disable form during submission
-        const submitButton = event.target.querySelector(
-          'button[type="submit"]'
-        );
-        const originalText = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML =
-          '<div class="loading-spinner"></div> Signing In...';
-
-        try {
-          const response = await fetch(`${API_BASE_URL}/auth/login`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              username: username,
-              password: password,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            showSuccess("Login successful! Redirecting to dashboard...");
-
-            // Store authentication token if provided
-            if (data.token) {
-              localStorage.setItem("authToken", data.token);
-            }
-
-            // Redirect to dashboard after a brief delay
-            setTimeout(() => {
-              window.location.href = "/dashboard.html";
-            }, 1500);
-          } else {
-            showError(
-              data.message || "Login failed. Please check your credentials."
-            );
+          // Basic validation
+          if (!email || !password) {
+            showError("Please enter both email and password");
+            return;
           }
-        } catch (error) {
-          console.error("Login Error:", error);
-          showError("Unable to connect to server. Please try again later.");
-        } finally {
-          // Re-enable form
-          submitButton.disabled = false;
-          submitButton.innerHTML = originalText;
-        }
-      }
 
-      // Event listeners
-      loginForm.addEventListener("submit", handleLogin);
+          // Disable form during submission
+          const submitButton = event.target.querySelector(
+            'button[type="submit"]'
+          );
+          const originalText = submitButton.innerHTML;
+          submitButton.disabled = true;
+          submitButton.innerHTML =
+            '<div class="loading-spinner"></div> Signing In...';
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                username: email,
+                password: password,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              showSuccess("Login successful! Redirecting to dashboard...");
+
+              // Store authentication tokens from Cognito
+              if (data.tokens) {
+                localStorage.setItem("accessToken", data.tokens.access_token);
+                localStorage.setItem("idToken", data.tokens.id_token);
+                localStorage.setItem("refreshToken", data.tokens.refresh_token);
+              }
+
+              // Store user information
+              if (data.user) {
+                localStorage.setItem("userInfo", JSON.stringify(data.user));
+              }
+
+              // Redirect to dashboard after a brief delay
+              setTimeout(() => {
+                window.location.href = "dashboard.html";
+              }, 1500);
+            } else {
+              showError(data.message || "Login failed. Please try again.");
+            }
+          } catch (error) {
+            showError(
+              "Connection error. Please check your internet connection."
+            );
+            console.error("Login error:", error);
+          } finally {
+            // Re-enable form
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+          }
+        });
+
+      // Handle registration form submission
+      document
+        .getElementById("registerForm")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+
+          const email = document.getElementById("registerEmail").value;
+          const password = document.getElementById("registerPassword").value;
+          const confirmPassword =
+            document.getElementById("confirmPassword").value;
+
+          // Basic validation
+          if (!email || !password || !confirmPassword) {
+            showError("Please fill in all fields");
+            return;
+          }
+
+          if (password !== confirmPassword) {
+            showError("Passwords do not match");
+            return;
+          }
+
+          if (password.length < 8) {
+            showError("Password must be at least 8 characters long");
+            return;
+          }
+
+          // Disable form during submission
+          const submitButton = event.target.querySelector(
+            'button[type="submit"]'
+          );
+          const originalText = submitButton.innerHTML;
+          submitButton.disabled = true;
+          submitButton.innerHTML =
+            '<div class="loading-spinner"></div> Registering...';
+
+          try {
+            const response = await fetch(`${API_BASE_URL}/auth/register`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                username: email,
+                password: password,
+                email: email,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              showSuccess(
+                "Registration successful! Please sign in with your credentials."
+              );
+
+              // Switch to login tab
+              showLogin();
+
+              // Pre-fill email in login form
+              document.getElementById("loginEmail").value = email;
+            } else {
+              showError(
+                data.message || "Registration failed. Please try again."
+              );
+            }
+          } catch (error) {
+            showError(
+              "Connection error. Please check your internet connection."
+            );
+            console.error("Registration error:", error);
+          } finally {
+            // Re-enable form
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+          }
+        });
+
+      // Make tab switching functions global
+      window.showLogin = function () {
+        document.getElementById("loginForm").style.display = "block";
+        document.getElementById("registerForm").style.display = "none";
+
+        // Update tab buttons
+        const tabs = document.querySelectorAll(".tab-button");
+        tabs[0].classList.add("active");
+        tabs[1].classList.remove("active");
+      };
+
+      window.showRegister = function () {
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("registerForm").style.display = "block";
+
+        // Update tab buttons
+        const tabs = document.querySelectorAll(".tab-button");
+        tabs[0].classList.remove("active");
+        tabs[1].classList.add("active");
+      };
 
       // Initialize the page
       document.addEventListener("DOMContentLoaded", function () {
         // Check if user is already logged in
-        const authToken = localStorage.getItem("authToken");
-        if (authToken) {
-          // Could add token validation here
-          console.log("User appears to be logged in");
+        const accessToken = localStorage.getItem("accessToken");
+        if (accessToken) {
+          // User is already logged in, redirect to dashboard
+          window.location.href = "dashboard.html";
         }
-      });
 
-      // Initialize page animations
-      document.addEventListener("DOMContentLoaded", function () {
         // Add subtle animation to the welcome card
         const welcomeCard = document.querySelector(".welcome-card");
         welcomeCard.style.opacity = "0";

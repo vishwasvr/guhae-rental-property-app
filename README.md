@@ -1,44 +1,73 @@
 # Guhae - Serverless Rental Property Management
 
-A modern, serverless rental property management application built on AWS Lambda with enterprise-grade security and semantic naming conventions.
+A modern, serverless rental property management application built on AWS with enterprise-grade Cognito authentication and global CDN delivery.
 
 ## 🌐 Live Demo
 
 **Frontend Application**: https://d3qr4jcsohv892.cloudfront.net
 
-**Demo Login Credentials (for testing):**
+**Authentication System**: AWS Cognito User Pools
 
-- **Username**: `demo`
-- **Password**: `demo123`
+- **Register**: Create new account with email and password
+- **Login**: Email-based authentication with JWT tokens
+- **Security**: Password policies enforced (8+ characters, complexity requirements)
 
-> **Note**: The system includes a production-ready authentication system. The above credentials are provided for demonstration and testing purposes.
+> **Demo User (for testing)**:
+>
+> - Email: `demo@example.com`
+> - Password: `Demo123!`
+>
+> Or register a new account using the Register tab on the login page.
 
 **API Endpoints:**
 
 - **API Gateway**: https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod
-- **Health Check**: `curl https://d3qr4jcsohv892.cloudfront.net/api/health`
-- **Dashboard API**: `curl https://d3qr4jcsohv892.cloudfront.net/api/dashboard`
+- **Authentication**: `POST /api/auth/login` and `POST /api/auth/register`
+- **Health Check**: `GET /api/health`
+- **Dashboard API**: `GET /api/dashboard`
 
 **Architecture:**
 
 - **Frontend**: S3 + CloudFront CDN (global edge caching)
 - **Backend**: Lambda + API Gateway (serverless)
+- **Authentication**: AWS Cognito User Pools
+- **Database**: DynamoDB (NoSQL, pay-per-request)
 
 ## 🏗️ Architecture
 
-**S3-Hosted Frontend + Serverless Backend:**
+**S3-Hosted Frontend + Serverless Backend + Cognito Auth:**
 
 - **RentalPropertyAssetsBucket** - S3 bucket for frontend hosting & property assets
 - **RentalPropertyWebDistribution** - CloudFront CDN for global frontend delivery
 - **RentalPropertyApiHandler** - Lambda function for API backend (2KB package)
 - **RentalPropertyApiGateway** - REST API endpoints with /api/\* routing
 - **RentalPropertiesTable** - DynamoDB table for rental data (pay-per-request)
+- **CognitoUserPool** - User authentication and management
+- **CognitoUserPoolClient** - Application client for authentication flows
 - **RentalPropertyLambdaExecutionRole** - IAM role with least-privilege permissions
 
 **Request Flow:**
 
 1. `yourdomain.com/` → CloudFront → S3 (frontend files)
 2. `yourdomain.com/api/*` → CloudFront → API Gateway → Lambda (backend)
+3. Authentication → Cognito User Pools → JWT tokens
+
+## 🔐 Authentication System
+
+**AWS Cognito Integration:**
+
+- **User Pool**: Centralized user management
+- **Email-based Login**: Users authenticate with email addresses
+- **JWT Tokens**: Access, ID, and refresh tokens for secure sessions
+- **Password Policies**: Enforced complexity requirements
+- **Email Verification**: Built-in verification workflow
+
+**Frontend Integration:**
+
+- **Registration Form**: New user signup with email/password
+- **Login Form**: Existing user authentication
+- **Token Storage**: Secure localStorage management
+- **Session Management**: Automatic token refresh and logout
 
 ## 💰 Cost Structure
 
@@ -48,6 +77,7 @@ A modern, serverless rental property management application built on AWS Lambda 
 - **1,000 page views**: ~$0.50/month
 - **10,000 page views**: ~$2.00/month
 - **100,000 page views**: ~$15.00/month
+- **Cognito**: First 50,000 MAUs free, then $0.0055/MAU
 
 **Breakdown:**
 
@@ -59,7 +89,51 @@ A modern, serverless rental property management application built on AWS Lambda 
 
 _Compared to traditional EC2 deployment: $9.11/month baseline + compute costs_
 
-## 🚀 Quick Start
+## � API Authentication
+
+**Register New User:**
+
+```bash
+curl -X POST https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user@example.com",
+    "password": "SecurePass123!",
+    "email": "user@example.com"
+  }'
+```
+
+**User Login:**
+
+```bash
+curl -X POST https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Response includes JWT tokens:**
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "user": {
+    "username": "user@example.com",
+    "email": "user@example.com",
+    "role": "user"
+  },
+  "tokens": {
+    "access_token": "eyJraWQiOiJua3RneWtaT0NOMmtmTkJYWEZH...",
+    "id_token": "eyJraWQiOiJXOXd1a1wvczlsR1RVdnRcL0MwREw1N1pK...",
+    "refresh_token": "eyJjdHkiOiJKV1QiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoi..."
+  }
+}
+```
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
@@ -100,12 +174,13 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 - ✅ **90%+ Cost Reduction**: From EC2 to true serverless architecture
 - ✅ **Ultra-Fast Deployments**: 2KB packages deploy in seconds (vs 13MB)
 - ✅ **Production-Ready Interface**: Clean, professional login and dashboard
-- ✅ **Authentication System**: Secure login with role-based access control
+- ✅ **AWS Cognito Authentication**: Enterprise-grade user management with JWT tokens
+- ✅ **Email-based Login**: Professional authentication flow with registration
 - ✅ **Enterprise Security**: Managed IAM policies with least-privilege access
 - ✅ **Semantic Naming**: Professional resource identification
 - ✅ **Auto-scaling**: Handle traffic spikes automatically
 - ✅ **Global CDN**: CloudFront for worldwide performance with full HTTP method support
-- ✅ **Working Authentication**: Complete login system with token-based sessions
+- ✅ **Token-based Sessions**: Secure JWT authentication with refresh tokens
 - ✅ **Real-time Dashboard**: Property statistics and management
 - ✅ **Health Monitoring**: Built-in API health checks and service status
 - ✅ **Frontend/Backend Separation**: Production-ready architecture
@@ -115,13 +190,18 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 **Frontend Access:**
 
 1. Visit: https://d3qr4jcsohv892.cloudfront.net
-2. Login with test credentials: `demo` / `demo123`
-3. Explore the property management dashboard
+2. **Register** a new account or **Login** with: `demo@example.com` / `Demo123!`
+3. Explore the property management dashboard with secure JWT authentication
 
 **API Testing:**
 
 ```bash
-# Test via CloudFront (production routing)
+# Test Authentication
+curl -X POST https://d3qr4jcsohv892.cloudfront.net/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo@example.com", "password": "Demo123!"}'
+
+# Test Health Checks
 curl https://d3qr4jcsohv892.cloudfront.net/api/health
 curl https://d3qr4jcsohv892.cloudfront.net/api/dashboard
 curl https://d3qr4jcsohv892.cloudfront.net/api/properties
