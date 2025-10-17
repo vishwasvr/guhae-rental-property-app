@@ -55,27 +55,39 @@ const US_STATES = [
   { code: "DC", name: "District of Columbia" },
 ];
 
-// Account types for users and tenants
+// Account types for users and tenants (Role-Based)
 const ACCOUNT_TYPES = [
+  {
+    value: "owner",
+    label: "Property Owner",
+    description: "Property owner with full management rights",
+    permissions:
+      "Full property management, tenant management, financial control",
+  },
+  {
+    value: "property_manager",
+    label: "Property Manager",
+    description: "Manages properties on behalf of owners",
+    permissions:
+      "Property management, tenant relations, maintenance coordination",
+  },
   {
     value: "tenant",
     label: "Tenant",
+    description: "Current tenant renting a property",
+    permissions: "View lease, pay rent, submit maintenance requests",
+  },
+  {
+    value: "prospect",
+    label: "Prospective Tenant",
     description: "Looking for rental properties",
+    permissions: "Browse properties, submit applications",
   },
   {
-    value: "landlord",
-    label: "Landlord",
-    description: "Property owner/manager",
-  },
-  {
-    value: "agent",
-    label: "Real Estate Agent",
-    description: "Representing clients",
-  },
-  {
-    value: "company",
-    label: "Property Management Company",
-    description: "Managing multiple properties",
+    value: "admin",
+    label: "System Administrator",
+    description: "Full system access and management",
+    permissions: "Complete system administration and oversight",
   },
 ];
 

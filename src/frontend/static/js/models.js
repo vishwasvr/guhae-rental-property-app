@@ -64,6 +64,43 @@ class User {
     };
   }
 
+  // Get user role information
+  getRole() {
+    if (typeof window !== "undefined" && window.USER_ROLES) {
+      const roleMap = {
+        admin: window.USER_ROLES.ADMIN,
+        owner: window.USER_ROLES.OWNER,
+        property_manager: window.USER_ROLES.PROPERTY_MANAGER,
+        tenant: window.USER_ROLES.TENANT,
+        prospect: window.USER_ROLES.PROSPECT,
+      };
+      return roleMap[this.accountType] || window.USER_ROLES.GUEST;
+    }
+    return null;
+  }
+
+  // Check if user has specific permission
+  hasPermission(permission) {
+    if (typeof window !== "undefined" && window.rbacManager) {
+      return window.rbacManager.hasPermission(permission);
+    }
+    return false;
+  }
+
+  // Get user's permission level
+  getPermissionLevel() {
+    const role = this.getRole();
+    return role ? role.level : 0;
+  }
+
+  // Check if user can access resource
+  canAccess(resourceType, action = "read") {
+    if (typeof window !== "undefined" && window.rbacManager) {
+      return window.rbacManager.hasPermission(`${resourceType}.${action}`);
+    }
+    return false;
+  }
+
   // Convert to API format
   toApiFormat() {
     return {
@@ -73,6 +110,7 @@ class User {
       phone: this.phone,
       dateOfBirth: this.dateOfBirth,
       accountType: this.accountType,
+      role: this.accountType, // Include role for backend
       company: this.company,
       address: this.address.toApiFormat(),
     };

@@ -42,6 +42,11 @@ async function handleLogin(event) {
     // Store authentication data
     AuthUtils.storeAuthData(data.tokens, data.user);
 
+    // Initialize RBAC with user data
+    if (typeof window !== "undefined" && window.rbacManager) {
+      window.rbacManager.initialize(data.user);
+    }
+
     // Redirect to dashboard after a brief delay
     setTimeout(() => {
       window.location.href = "dashboard.html";

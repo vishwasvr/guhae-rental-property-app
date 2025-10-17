@@ -2,6 +2,83 @@
 
 // Dashboard utilities
 const DashboardUtils = {
+  // Initialize role-based dashboard
+  initializeRoleDashboard() {
+    const currentUser = AuthUtils.getCurrentUser();
+    if (currentUser && typeof window !== "undefined" && window.rbacManager) {
+      // Initialize RBAC
+      window.rbacManager.initialize(currentUser);
+
+      // Apply role-based dashboard configuration
+      this.setupRoleBasedDashboard();
+
+      // Update user role display
+      this.updateUserRoleDisplay(currentUser);
+    }
+  },
+
+  // Setup dashboard based on user role
+  setupRoleBasedDashboard() {
+    if (typeof window === "undefined" || !window.rbacManager) return;
+
+    const currentUser = AuthUtils.getCurrentUser();
+    const role = window.rbacManager.currentRole;
+
+    if (role && window.ROLE_DASHBOARDS && window.ROLE_DASHBOARDS[role.name]) {
+      const dashboardConfig = window.ROLE_DASHBOARDS[role.name];
+
+      // Setup widgets based on role
+      this.setupRoleWidgets(dashboardConfig.widgets);
+
+      // Setup quick actions based on role
+      this.setupRoleActions(dashboardConfig.quickActions);
+    }
+  },
+
+  // Setup role-specific widgets
+  setupRoleWidgets(widgets) {
+    const availableWidgets = {
+      system_health: () => this.setupSystemHealthWidget(),
+      my_properties: () => this.setupMyPropertiesWidget(),
+      tenant_overview: () => this.setupTenantOverviewWidget(),
+      rental_income: () => this.setupRentalIncomeWidget(),
+      maintenance_requests: () => this.setupMaintenanceWidget(),
+      property_search: () => this.setupPropertySearchWidget(),
+      my_lease: () => this.setupMyLeaseWidget(),
+      rent_status: () => this.setupRentStatusWidget(),
+    };
+
+    // Hide all widgets first
+    document.querySelectorAll(".dashboard-widget").forEach((widget) => {
+      widget.style.display = "none";
+    });
+
+    // Show only permitted widgets
+    widgets.forEach((widgetName) => {
+      if (availableWidgets[widgetName]) {
+        availableWidgets[widgetName]();
+      }
+    });
+  },
+
+  // Update user role display in dashboard
+  updateUserRoleDisplay(user) {
+    const roleElement = document.getElementById("user-role-display");
+    const nameElement = document.getElementById("user-name-display");
+
+    if (roleElement && window.rbacManager && window.rbacManager.currentRole) {
+      const role = window.rbacManager.currentRole;
+      roleElement.innerHTML = `<span class="badge bg-${window.rbacManager.getRoleColor(
+        role.name
+      )}">${role.label}</span>`;
+    }
+
+    if (nameElement && user) {
+      nameElement.textContent =
+        user.firstName + " " + user.lastName || user.email;
+    }
+  },
+
   // Load and display dashboard statistics
   async loadDashboardData() {
     try {
@@ -187,13 +264,16 @@ function initDashboard() {
     return;
   }
 
+  // Initialize role-based dashboard
+  DashboardUtils.initializeRoleDashboard();
+
   // Set current user info
   const user = AuthUtils.getCurrentUser();
   if (user) {
     document.getElementById("currentUser").textContent = user.displayName;
   }
 
-  // Load all dashboard data
+  // Load all dashboard data (filtered by role permissions)
   DashboardUtils.loadDashboardData();
   DashboardUtils.loadProperties();
   DashboardUtils.checkApiHealth();

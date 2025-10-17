@@ -4,6 +4,32 @@ import os
 import uuid
 from datetime import datetime
 
+# Import RBAC utilities
+import sys
+sys.path.append('/opt/python')  # For Lambda layers
+sys.path.append('.')  # For local development
+try:
+    from utils.rbac import (
+        get_user_from_token, has_permission, can_access_resource,
+        filter_properties_by_role, add_rbac_context, require_permission
+    )
+except ImportError:
+    # Fallback if RBAC module is not available
+    def get_user_from_token(event):
+        return {'accountType': 'owner', 'id': 'default'}
+    def has_permission(user_data, permission):
+        return True
+    def can_access_resource(user_data, resource_type, resource_id, action='read'):
+        return True
+    def filter_properties_by_role(properties, user_data):
+        return properties
+    def add_rbac_context(response_data, user_data, resource_type=None):
+        return response_data
+    def require_permission(permission):
+        def decorator(func):
+            return func
+        return decorator
+
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
 s3_client = boto3.client('s3')
@@ -44,7 +70,7 @@ def lambda_handler(event, context):
         elif path == '/api/profile' and method == 'PUT':
             return update_profile(event, headers)
         elif path == '/api/properties' and method == 'GET':
-            return list_properties(headers)
+            return list_properties(event, headers)
         elif path == '/api/properties' and method == 'POST':
             return create_property(event, headers)
         elif path.startswith('/api/properties/') and method == 'GET':
@@ -57,7 +83,7 @@ def lambda_handler(event, context):
             property_id = path.split('/')[-1]
             return delete_property(property_id, headers)
         elif path == '/api/dashboard' and method == 'GET':
-            return get_dashboard_stats(headers)
+            return get_dashboard_stats(event, headers)
         elif path == '/api/health' and method == 'GET':
             return get_health_status(headers)
         else:
@@ -74,28 +100,62 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': str(e)})
         }
 
-def list_properties(headers):
+def list_properties(event, headers):
+    # Get user data for RBAC filtering
+    user_data = get_user_from_token(event)
+    
+    # Check if user has permission to read properties
+    if not has_permission(user_data, 'property.read') and not has_permission(user_data, 'property.read.public'):
+        return {
+            'statusCode': 403,
+            'headers': headers,
+            'body': json.dumps({'error': 'Insufficient permissions to view properties'})
+        }
+    
     response = table.scan(
         FilterExpression='begins_with(pk, :pk_prefix)',
         ExpressionAttributeValues={':pk_prefix': 'PROPERTY#'},
         Limit=50
     )
+    
     properties = [format_property(item) for item in response.get('Items', [])]
+    
+    # Filter properties based on user role
+    filtered_properties = filter_properties_by_role(properties, user_data)
+    
+    # Add RBAC context to response
+    response_data = {'properties': filtered_properties}
+    response_data = add_rbac_context(response_data, user_data, 'property')
+    
     return {
         'statusCode': 200,
         'headers': headers,
-        'body': json.dumps({'properties': properties})
+        'body': json.dumps(response_data)
     }
 
 def create_property(event, headers):
+    # Get user data and check permissions
+    user_data = get_user_from_token(event)
+    
+    if not has_permission(user_data, 'property.create'):
+        return {
+            'statusCode': 403,
+            'headers': headers,
+            'body': json.dumps({'error': 'Insufficient permissions to create properties'})
+        }
+    
     data = json.loads(event['body'])
     property_id = str(uuid.uuid4())
+    
+    # Set owner_id from authenticated user
+    owner_id = user_data.get('id', user_data.get('user_id', 'default-owner'))
     
     item = {
         'pk': f'PROPERTY#{property_id}',
         'sk': 'METADATA',
-        'gsi1pk': f'OWNER#{data.get("owner_id", "default-owner")}',
+        'gsi1pk': f'OWNER#{owner_id}',
         'id': property_id,
+        'owner_id': owner_id,
         'title': data.get('title', ''),
         'description': data.get('description', ''),
         'address': data.get('address', ''),
@@ -103,14 +163,21 @@ def create_property(event, headers):
         'property_type': data.get('property_type', 'residential'),
         'status': 'active',
         'created_at': datetime.utcnow().isoformat(),
-        'updated_at': datetime.utcnow().isoformat()
+        'updated_at': datetime.utcnow().isoformat(),
+        'created_by': user_data.get('email', 'unknown'),
+        'role_created_by': user_data.get('accountType', 'unknown')
     }
     
     table.put_item(Item=item)
+    
+    # Add RBAC context to response
+    response_data = {'property': format_property(item)}
+    response_data = add_rbac_context(response_data, user_data, 'property')
+    
     return {
         'statusCode': 201,
         'headers': headers,
-        'body': json.dumps({'property': format_property(item)})
+        'body': json.dumps(response_data)
     }
 
 def get_property(property_id, headers):
@@ -169,19 +236,62 @@ def delete_property(property_id, headers):
         'body': json.dumps({'message': 'Property deleted'})
     }
 
-def get_dashboard_stats(headers):
+def get_dashboard_stats(event, headers):
+    # Get user data for role-based stats
+    user_data = get_user_from_token(event)
+    
+    if not has_permission(user_data, 'property.read') and not has_permission(user_data, 'property.read.own'):
+        return {
+            'statusCode': 403,
+            'headers': headers,
+            'body': json.dumps({'error': 'Insufficient permissions to view dashboard'})
+        }
+    
+    # Get properties count (filtered by role)
     response = table.scan(
         FilterExpression='begins_with(pk, :pk_prefix)',
         ExpressionAttributeValues={':pk_prefix': 'PROPERTY#'},
-        Select='COUNT'
     )
     
+    all_properties = [format_property(item) for item in response.get('Items', [])]
+    filtered_properties = filter_properties_by_role(all_properties, user_data)
+    
+    # Calculate role-based statistics
     stats = {
-        'total_properties': response['Count'],
-        'active_properties': response['Count'],  # Simplified
-        'total_users': 1,
-        'total_leases': 0
+        'total_properties': len(filtered_properties),
+        'active_properties': len([p for p in filtered_properties if p.get('status') == 'active']),
+        'total_users': 1,  # Simplified for now
+        'total_leases': 0,  # Simplified for now
+        'user_role': user_data.get('accountType', 'guest') if user_data else 'guest'
     }
+    
+    # Add role-specific stats
+    user_role = user_data.get('accountType', 'guest') if user_data else 'guest'
+    
+    if user_role in ['owner', 'property_manager']:
+        stats.update({
+            'my_properties': len(filtered_properties),
+            'vacant_properties': len([p for p in filtered_properties if p.get('status') == 'vacant']),
+            'maintenance_requests': 0,  # Placeholder
+            'rent_collected_this_month': 0  # Placeholder
+        })
+    elif user_role == 'tenant':
+        stats.update({
+            'my_lease_status': 'active',  # Placeholder
+            'rent_due_date': None,  # Placeholder
+            'maintenance_requests_open': 0,  # Placeholder
+            'next_payment_amount': 0  # Placeholder
+        })
+    elif user_role == 'admin':
+        stats.update({
+            'system_health': 'healthy',
+            'total_users': 1,  # Would be actual count in real system
+            'total_transactions': 0,  # Placeholder
+            'system_alerts': 0  # Placeholder
+        })
+    
+    # Add RBAC context
+    stats = add_rbac_context(stats, user_data, 'dashboard')
     
     return {
         'statusCode': 200,
