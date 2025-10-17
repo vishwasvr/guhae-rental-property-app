@@ -23,6 +23,10 @@ A modern, serverless rental property management application built on AWS Lambda 
 
 ```bash
 cd deployment
+# With dedicated IAM user (recommended)
+AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
+
+# Or with default AWS credentials
 ./deploy-serverless.sh all
 ```
 
@@ -77,7 +81,113 @@ guhae-rental-property-app/
 - Python 3.8+ (for local development)
 - Git (for version control)
 
-## 🚀 Deployment Steps
+## 🔐 AWS Security Setup (Recommended)
+
+### Creating a Dedicated IAM User
+
+For security best practices, create a dedicated IAM user for this application:
+
+#### 1. Create IAM User
+
+```bash
+aws iam create-user --user-name guhae-deployment-user
+```
+
+#### 2. Create Custom Policy
+
+Create a policy file with minimal required permissions:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["cloudformation:*"],
+      "Resource": "arn:aws:cloudformation:*:*:stack/guhae-serverless/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["lambda:*"],
+      "Resource": "arn:aws:lambda:*:*:function:guhae-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["apigateway:*", "cloudfront:*"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["dynamodb:*"],
+      "Resource": "arn:aws:dynamodb:*:*:table/guhae-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:*"],
+      "Resource": ["arn:aws:s3:::guhae-*", "arn:aws:s3:::guhae-*/*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:*RolePolicy"
+      ],
+      "Resource": "arn:aws:iam::*:role/guhae-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["logs:*"],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/guhae-*"
+    }
+  ]
+}
+```
+
+#### 3. Create and Attach Policy
+
+```bash
+# Create policy from file
+aws iam create-policy \
+    --policy-name guhae-deployment-policy \
+    --policy-document file://guhae-policy.json
+
+# Attach policy to user
+aws iam attach-user-policy \
+    --user-name guhae-deployment-user \
+    --policy-arn arn:aws:iam::YOUR-ACCOUNT-ID:policy/guhae-deployment-policy
+```
+
+#### 4. Generate Access Keys
+
+```bash
+aws iam create-access-key --user-name guhae-deployment-user
+```
+
+**Save the AccessKeyId and SecretAccessKey securely!**
+
+#### 5. Configure AWS Profile
+
+```bash
+# Set up dedicated profile
+aws configure set aws_access_key_id YOUR-ACCESS-KEY --profile guhae-deployment
+aws configure set aws_secret_access_key YOUR-SECRET-KEY --profile guhae-deployment
+aws configure set region us-east-1 --profile guhae-deployment
+
+# Test the profile
+aws sts get-caller-identity --profile guhae-deployment
+```
+
+### Security Benefits
+
+- ✅ **Principle of Least Privilege** - Only required permissions
+- ✅ **Resource Scoping** - Limited to `guhae-*` resources
+- ✅ **Audit Trail** - Separate user for application operations
+- ✅ **Easy Revocation** - Delete user to revoke all access
+
+## Deployment Steps
 
 1. **Clone the repository**
 
@@ -95,16 +205,17 @@ guhae-rental-property-app/
    # git config --global credential.helper store       # Linux
    ```
 
-3. **Configure AWS credentials** (if not already done)
-
-   ```bash
-   aws configure
-   ```
+3. **Set up AWS IAM User** (recommended - see AWS Security Setup above)
 
 4. **Deploy to AWS**
 
    ```bash
    cd deployment
+
+   # Option 1: Using dedicated user profile (recommended)
+   AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
+
+   # Option 2: Using default AWS credentials
    ./deploy-serverless.sh all
    ```
 
@@ -204,12 +315,66 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
    ```
 
 3. **Stack already exists**
+
    ```bash
-   aws cloudformation delete-stack --stack-name guhae-serverless
+   aws cloudformation delete-stack --stack-name guhae-serverless --profile guhae-deployment
    # Wait for deletion, then redeploy
    ```
 
-## � Git Authentication & Token Management
+4. **IAM permission errors**
+
+   ```bash
+   # Check which user you're using
+   aws sts get-caller-identity --profile guhae-deployment
+
+   # Verify policy is attached
+   aws iam list-attached-user-policies --user-name guhae-deployment-user
+   ```
+
+5. **Update IAM user access keys**
+
+   ```bash
+   # List existing keys
+   aws iam list-access-keys --user-name guhae-deployment-user
+
+   # Create new key
+   aws iam create-access-key --user-name guhae-deployment-user
+
+   # Delete old key (after updating profile)
+   aws iam delete-access-key --user-name guhae-deployment-user --access-key-id OLD-KEY-ID
+   ```
+
+## 🗑️ Cleanup Commands
+
+### Remove IAM User and Resources
+
+```bash
+# Detach policy
+aws iam detach-user-policy \
+    --user-name guhae-deployment-user \
+    --policy-arn arn:aws:iam::YOUR-ACCOUNT:policy/guhae-deployment-policy
+
+# Delete access keys
+aws iam delete-access-key \
+    --user-name guhae-deployment-user \
+    --access-key-id YOUR-ACCESS-KEY
+
+# Delete user
+aws iam delete-user --user-name guhae-deployment-user
+
+# Delete policy
+aws iam delete-policy \
+    --policy-arn arn:aws:iam::YOUR-ACCOUNT:policy/guhae-deployment-policy
+
+# Remove AWS profile (careful - this affects the specific profile only)
+# Method 1: Remove specific profile
+aws configure --profile guhae-deployment set aws_access_key_id ""
+aws configure --profile guhae-deployment set aws_secret_access_key ""
+
+# Method 2: Manually edit ~/.aws/credentials to remove [guhae-deployment] section
+```
+
+## 🔐 Git Authentication & Token Management
 
 ### Initial Setup
 
