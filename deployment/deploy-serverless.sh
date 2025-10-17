@@ -158,6 +158,37 @@ upload_static_files() {
     echo "   🔌 API calls will be routed to Lambda backend"
 }
 
+# Function to invalidate CloudFront cache
+invalidate_cloudfront_cache() {
+    echo "🔄 Invalidating CloudFront cache..."
+    
+    # Get CloudFront distribution ID
+    DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[?contains(DomainName, 'cloudfront.net')].Id" \
+        --output text)
+    
+    if [ -z "$DISTRIBUTION_ID" ]; then
+        echo "⚠️  No CloudFront distribution found, skipping cache invalidation"
+        return
+    fi
+    
+    # Create invalidation
+    INVALIDATION_ID=$(aws cloudfront create-invalidation \
+        --distribution-id $DISTRIBUTION_ID \
+        --paths "/*" \
+        --query 'Invalidation.Id' \
+        --output text)
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Cache invalidation initiated (ID: $INVALIDATION_ID)"
+        echo "   ⏰ Cache will be cleared within 1-3 minutes"
+        echo "   🌐 Users will see updated content immediately"
+    else
+        echo "⚠️  Cache invalidation failed, but deployment continues"
+        echo "   💡 Try hard refresh (Ctrl+F5) to see updates"
+    fi
+}
+
 # Main deployment logic
 case "$1" in
     "infrastructure")
@@ -202,12 +233,14 @@ case "$1" in
         ;;
     "website")
         upload_static_files
+        invalidate_cloudfront_cache
         ;;
     "all")
         deploy_serverless_infrastructure
         echo ""
         echo "🌐 Uploading static website..."
         upload_static_files
+        invalidate_cloudfront_cache
         
         CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
@@ -219,6 +252,9 @@ case "$1" in
         echo "🎉 Serverless deployment complete!"
         echo "🌐 Your app is live at: $CLOUDFRONT_URL"
         echo "⏰ Note: CloudFront may take 5-10 minutes to fully deploy"
+        ;;
+    "cache")
+        invalidate_cloudfront_cache
         ;;
     "test")
         # Test the API
@@ -241,13 +277,14 @@ case "$1" in
         echo "🗑️ CloudFormation stack deletion initiated"
         ;;
     *)
-        echo "Usage: $0 {infrastructure|code|website|all|test|cleanup}"
+        echo "Usage: $0 {infrastructure|code|website|cache|all|test|cleanup}"
         echo ""
         echo "🚀 Serverless Deployment Options:"
         echo "  $0 infrastructure  # Deploy Lambda + API Gateway + DynamoDB"
         echo "  $0 code           # Quick Lambda code update (~2KB, seconds)"
-        echo "  $0 website        # Upload static website to S3/CloudFront"
-        echo "  $0 all            # Complete serverless deployment"
+        echo "  $0 website        # Upload static website to S3/CloudFront + invalidate cache"
+        echo "  $0 cache          # Invalidate CloudFront cache only"
+        echo "  $0 all            # Complete serverless deployment + cache invalidation"
         echo "  $0 test           # Test API endpoints"
         echo "  $0 cleanup        # Remove all resources"
         echo ""
