@@ -38,7 +38,7 @@ Resources:
           - Effect: Allow
             Principal: "*"
             Action: s3:GetObject
-            Resource: !Sub "${GuhaeStorageBucket}/static/*"
+            Resource: !Sub "${GuhaeStorageBucket.Arn}/static/*"
 
   # Single DynamoDB Table - Pay per request
   GuhaeDataTable:
@@ -103,7 +103,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:DeleteObject
-                Resource: !Sub "${GuhaeStorageBucket}/*"
+                Resource: !Sub "${GuhaeStorageBucket.Arn}/*"
               - Effect: Allow
                 Action:
                   - s3:ListBucket
@@ -356,7 +356,7 @@ Resources:
       FunctionName: !Ref GuhaeApiFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${GuhaeApiGateway}/*/ANY/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GuhaeApiGateway}/*/ANY/*"
 
   # CloudFront Distribution for global CDN and static hosting
   GuhaeCloudfrontDistribution:

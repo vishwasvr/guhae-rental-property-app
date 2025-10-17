@@ -22,7 +22,7 @@ package_lambda() {
     cd lambda-package
     
     # Copy minimal application code
-    cp -r ../src .
+    cp -r ../../src .
     
     # Create Lambda handler that wraps our Flask app
     cat > lambda_function.py << 'EOF'
