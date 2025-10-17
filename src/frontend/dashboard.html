@@ -114,6 +114,12 @@
             </a>
             <ul class="dropdown-menu">
               <li>
+                <a class="dropdown-item" href="profile.html">
+                  <i class="fas fa-user-edit me-2"></i>Profile Settings
+                </a>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li>
                 <a class="dropdown-item" href="#" onclick="logout()">
                   <i class="fas fa-sign-out-alt me-2"></i>Logout
                 </a>
@@ -273,147 +279,15 @@
       </div>
     </div>
 
+    <!-- Styles -->
+    <link href="static/css/dashboard.css" rel="stylesheet" />
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      // Configuration - Use CloudFront CDN for optimal performance
-      const API_BASE = window.location.origin;
-
-      // Load dashboard data
-      async function loadDashboardData() {
-        try {
-          const response = await fetch(`${API_BASE}/api/dashboard`);
-          const data = await response.json();
-
-          // Update statistics
-          document.getElementById("totalProperties").textContent =
-            data.total_properties || 0;
-          document.getElementById("totalUsers").textContent =
-            data.total_users || 1;
-          document.getElementById("totalLeases").textContent =
-            data.total_leases || 0;
-
-          // Update last updated time
-          document.getElementById("lastUpdated").textContent =
-            new Date().toLocaleTimeString();
-        } catch (error) {
-          console.error("Error loading dashboard data:", error);
-        }
-      }
-
-      // Load properties
-      async function loadProperties() {
-        try {
-          const response = await fetch(`${API_BASE}/api/properties`);
-          const data = await response.json();
-
-          const propertiesList = document.getElementById("propertiesList");
-          if (data.properties && data.properties.length > 0) {
-            let html = "";
-            data.properties.forEach((property) => {
-              html += `
-                            <div class="activity-item">
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1">
-                                        <p class="mb-1">${
-                                          property.title || "Untitled Property"
-                                        }</p>
-                                        <small class="text-muted">${
-                                          property.address || "No address"
-                                        }</small>
-                                    </div>
-                                    <span class="badge bg-success">Active</span>
-                                </div>
-                            </div>
-                        `;
-            });
-            propertiesList.innerHTML = html;
-          } else {
-            propertiesList.innerHTML = `
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-home fa-2x mb-3"></i>
-                            <p>No properties yet</p>
-                            <button class="btn btn-outline-primary btn-sm" onclick="addProperty()">
-                                Add Your First Property
-                            </button>
-                        </div>
-                    `;
-          }
-        } catch (error) {
-          console.error("Error loading properties:", error);
-        }
-      }
-
-      // Check API health
-      async function checkApiHealth() {
-        try {
-          const response = await fetch(`${API_BASE}/api/health`);
-          const data = await response.json();
-
-          const statusElement = document.getElementById("apiStatus");
-          if (data.status === "healthy") {
-            statusElement.innerHTML = '<i class="fas fa-circle"></i> Online';
-            statusElement.className = "text-success";
-          } else {
-            statusElement.innerHTML =
-              '<i class="fas fa-exclamation-triangle"></i> Issues';
-            statusElement.className = "text-warning";
-          }
-        } catch (error) {
-          const statusElement = document.getElementById("apiStatus");
-          statusElement.innerHTML =
-            '<i class="fas fa-times-circle"></i> Offline';
-          statusElement.className = "text-danger";
-        }
-      }
-
-      // Add property placeholder
-      function addProperty() {
-        alert(
-          "Add Property feature coming soon! This will open a form to add new rental properties."
-        );
-      }
-
-      // Logout function
-      function logout() {
-        // Clear all Cognito tokens
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("idToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("userInfo");
-        window.location.href = `${API_BASE}/`;
-      }
-
-      // Set current user
-      function setCurrentUser() {
-        // Get user info from Cognito tokens
-        const userInfo = localStorage.getItem("userInfo");
-        if (userInfo) {
-          try {
-            const user = JSON.parse(userInfo);
-            document.getElementById("currentUser").textContent =
-              user.email || "User";
-          } catch (e) {
-            document.getElementById("currentUser").textContent = "User";
-          }
-        } else {
-          document.getElementById("currentUser").textContent = "User";
-        }
-      }
-
-      // Initialize dashboard
-      window.addEventListener("load", function () {
-        setCurrentUser();
-        loadDashboardData();
-        loadProperties();
-        checkApiHealth();
-
-        // Refresh data every 30 seconds
-        setInterval(function () {
-          loadDashboardData();
-          checkApiHealth();
-        }, 30000);
-      });
-    </script>
+    <script src="static/js/data.js"></script>
+    <script src="static/js/utils.js"></script>
+    <script src="static/js/components.js"></script>
+    <script src="static/js/models.js"></script>
+    <script src="static/js/dashboard.js"></script>
   </body>
 </html>

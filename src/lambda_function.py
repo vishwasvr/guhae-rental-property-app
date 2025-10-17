@@ -39,6 +39,10 @@ def lambda_handler(event, context):
             return handle_login(event, headers)
         elif path == '/api/auth/register' and method == 'POST':
             return handle_register(event, headers)
+        elif path == '/api/profile' and method == 'GET':
+            return get_profile(event, headers)
+        elif path == '/api/profile' and method == 'PUT':
+            return update_profile(event, headers)
         elif path == '/api/properties' and method == 'GET':
             return list_properties(headers)
         elif path == '/api/properties' and method == 'POST':
@@ -326,13 +330,14 @@ def handle_login(event, headers):
         }
 
 def handle_register(event, headers):
-    """Handle user registration with Cognito"""
+    """Handle user registration with Cognito and profile storage"""
     try:
         # Parse request body
         body = json.loads(event.get('body', '{}'))
         username = body.get('username', '').strip()
         password = body.get('password', '').strip()
         email = body.get('email', '').strip()
+        profile = body.get('profile', {})
         
         if not username or not password or not email:
             return {
@@ -345,22 +350,48 @@ def handle_register(event, headers):
             }
         
         try:
+            # Create user attributes for Cognito
+            user_attributes = [
+                {
+                    'Name': 'email',
+                    'Value': email
+                },
+                {
+                    'Name': 'email_verified',
+                    'Value': 'true'
+                }
+            ]
+            
+            # Add profile attributes if provided
+            if profile.get('firstName'):
+                user_attributes.append({
+                    'Name': 'given_name',
+                    'Value': profile['firstName']
+                })
+            
+            if profile.get('lastName'):
+                user_attributes.append({
+                    'Name': 'family_name',
+                    'Value': profile['lastName']
+                })
+                
+            if profile.get('phone'):
+                # Clean phone number for Cognito (must be in E.164 format)
+                phone = profile['phone'].replace('(', '').replace(')', '').replace('-', '').replace(' ', '').replace('.', '')
+                if not phone.startswith('+'):
+                    phone = '+1' + phone  # Assume US number
+                user_attributes.append({
+                    'Name': 'phone_number',
+                    'Value': phone
+                })
+            
             # Create user in Cognito
             response = cognito_client.admin_create_user(
                 UserPoolId=user_pool_id,
                 Username=username,
                 MessageAction='SUPPRESS',  # Don't send welcome email
                 TemporaryPassword=password,
-                UserAttributes=[
-                    {
-                        'Name': 'email',
-                        'Value': email
-                    },
-                    {
-                        'Name': 'email_verified',
-                        'Value': 'true'
-                    }
-                ]
+                UserAttributes=user_attributes
             )
             
             # Set permanent password
@@ -371,6 +402,29 @@ def handle_register(event, headers):
                 Permanent=True
             )
             
+            # Store extended profile in DynamoDB
+            user_id = str(uuid.uuid4())
+            profile_data = {
+                'pk': f'USER#{user_id}',
+                'sk': 'PROFILE',
+                'user_id': user_id,
+                'cognito_username': username,
+                'email': email,
+                'first_name': profile.get('firstName', ''),
+                'last_name': profile.get('lastName', ''),
+                'phone': profile.get('phone', ''),
+                'date_of_birth': profile.get('dateOfBirth', ''),
+                'address': profile.get('address', {}),
+                'account_type': profile.get('accountType', 'tenant'),
+                'company': profile.get('company', ''),
+                'created_at': datetime.utcnow().isoformat(),
+                'updated_at': datetime.utcnow().isoformat(),
+                'status': 'active'
+            }
+            
+            # Store profile in DynamoDB
+            table.put_item(Item=profile_data)
+            
             return {
                 'statusCode': 201,
                 'headers': headers,
@@ -378,8 +432,12 @@ def handle_register(event, headers):
                     'success': True,
                     'message': 'User registered successfully',
                     'user': {
+                        'user_id': user_id,
                         'username': username,
-                        'email': email
+                        'email': email,
+                        'first_name': profile.get('firstName', ''),
+                        'last_name': profile.get('lastName', ''),
+                        'account_type': profile.get('accountType', 'tenant')
                     }
                 })
             }
@@ -412,6 +470,218 @@ def handle_register(event, headers):
             'body': json.dumps({
                 'success': False,
                 'message': 'Registration error occurred',
+                'error': str(e)
+            })
+        }
+
+def get_profile(event, headers):
+    """Get user profile information"""
+    try:
+        # Get user ID from JWT token (simplified for now)
+        # In production, decode and validate JWT token
+        user_email = event.get('requestContext', {}).get('authorizer', {}).get('claims', {}).get('email')
+        
+        if not user_email:
+            # For now, get from query parameters or headers as fallback
+            user_email = event.get('queryStringParameters', {}).get('email') if event.get('queryStringParameters') else None
+        
+        if not user_email:
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Authentication required'
+                })
+            }
+        
+        # Query DynamoDB for user profile
+        try:
+            response = table.scan(
+                FilterExpression='email = :email',
+                ExpressionAttributeValues={':email': user_email}
+            )
+            
+            if not response['Items']:
+                return {
+                    'statusCode': 404,
+                    'headers': headers,
+                    'body': json.dumps({
+                        'success': False,
+                        'message': 'Profile not found'
+                    })
+                }
+            
+            profile = response['Items'][0]
+            
+            # Format profile response
+            profile_data = {
+                'user_id': profile.get('user_id'),
+                'email': profile.get('email'),
+                'firstName': profile.get('first_name', ''),
+                'lastName': profile.get('last_name', ''),
+                'phone': profile.get('phone', ''),
+                'dateOfBirth': profile.get('date_of_birth', ''),
+                'address': profile.get('address', {}),
+                'accountType': profile.get('account_type', 'tenant'),
+                'company': profile.get('company', ''),
+                'status': profile.get('status', 'active'),
+                'created_at': profile.get('created_at'),
+                'updated_at': profile.get('updated_at')
+            }
+            
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': True,
+                    'profile': profile_data
+                })
+            }
+            
+        except Exception as db_error:
+            print(f"Database error: {str(db_error)}")
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Failed to retrieve profile'
+                })
+            }
+            
+    except Exception as e:
+        print(f"Profile retrieval error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({
+                'success': False,
+                'message': 'Profile retrieval error occurred',
+                'error': str(e)
+            })
+        }
+
+def update_profile(event, headers):
+    """Update user profile information"""
+    try:
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        
+        # Get user email (in production, extract from JWT)
+        user_email = body.get('email') or event.get('queryStringParameters', {}).get('email')
+        
+        if not user_email:
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Authentication required'
+                })
+            }
+        
+        # Find existing profile
+        try:
+            response = table.scan(
+                FilterExpression='email = :email',
+                ExpressionAttributeValues={':email': user_email}
+            )
+            
+            if not response['Items']:
+                return {
+                    'statusCode': 404,
+                    'headers': headers,
+                    'body': json.dumps({
+                        'success': False,
+                        'message': 'Profile not found'
+                    })
+                }
+            
+            existing_profile = response['Items'][0]
+            pk = existing_profile['pk']
+            sk = existing_profile['sk']
+            
+            # Prepare update data
+            update_data = {
+                'first_name': body.get('firstName', ''),
+                'last_name': body.get('lastName', ''),
+                'phone': body.get('phone', ''),
+                'date_of_birth': body.get('dateOfBirth', ''),
+                'address': {
+                    'street': body.get('streetAddress', ''),
+                    'city': body.get('city', ''),
+                    'state': body.get('state', ''),
+                    'zipCode': body.get('zipCode', '')
+                },
+                'account_type': body.get('accountType', 'tenant'),
+                'company': body.get('company', ''),
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            # Build update expression
+            update_expression = "SET "
+            expression_values = {}
+            
+            for key, value in update_data.items():
+                update_expression += f"{key} = :{key}, "
+                expression_values[f":{key}"] = value
+            
+            update_expression = update_expression.rstrip(', ')
+            
+            # Update profile in DynamoDB
+            updated_response = table.update_item(
+                Key={'pk': pk, 'sk': sk},
+                UpdateExpression=update_expression,
+                ExpressionAttributeValues=expression_values,
+                ReturnValues='ALL_NEW'
+            )
+            
+            updated_profile = updated_response['Attributes']
+            
+            # Format response
+            profile_data = {
+                'user_id': updated_profile.get('user_id'),
+                'email': updated_profile.get('email'),
+                'firstName': updated_profile.get('first_name', ''),
+                'lastName': updated_profile.get('last_name', ''),
+                'phone': updated_profile.get('phone', ''),
+                'dateOfBirth': updated_profile.get('date_of_birth', ''),
+                'address': updated_profile.get('address', {}),
+                'accountType': updated_profile.get('account_type', 'tenant'),
+                'company': updated_profile.get('company', ''),
+                'updated_at': updated_profile.get('updated_at')
+            }
+            
+            return {
+                'statusCode': 200,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': True,
+                    'message': 'Profile updated successfully',
+                    'profile': profile_data
+                })
+            }
+            
+        except Exception as db_error:
+            print(f"Database update error: {str(db_error)}")
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Failed to update profile'
+                })
+            }
+            
+    except Exception as e:
+        print(f"Profile update error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({
+                'success': False,
+                'message': 'Profile update error occurred',
                 'error': str(e)
             })
         }

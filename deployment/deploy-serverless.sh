@@ -146,6 +146,7 @@ upload_static_files() {
     echo "   📄 Uploading HTML files..."
     aws s3 cp ../src/frontend/index.html s3://$S3_BUCKET/index.html --content-type "text/html"
     aws s3 cp ../src/frontend/dashboard.html s3://$S3_BUCKET/dashboard.html --content-type "text/html"
+    aws s3 cp ../src/frontend/profile.html s3://$S3_BUCKET/profile.html --content-type "text/html"
     
     echo "   🎨 Uploading CSS files..."
     aws s3 cp ../src/frontend/static/css/ s3://$S3_BUCKET/static/css/ --recursive --content-type "text/css"
