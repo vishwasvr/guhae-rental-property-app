@@ -1,18 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: SERVERLESS Guhae rental property app - Lambda-based for ultra-low costs
 
-Parameters:
-  NotificationEmail:
-    Type: String
-    Description: Email address for notifications
-    Default: admin@guhae.com
+# No parameters needed for this template
 
 Resources:
-  # S3 Bucket for storage and static website hosting
-  GuhaeStorageBucket:
+  # S3 bucket for static files and rental property assets
+  RentalPropertyAssetsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${AWS::StackName}-storage"
+      BucketName: !Sub "${AWS::StackName}-assets-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false
@@ -28,23 +24,23 @@ Resources:
             AllowedOrigins: ["*"]
             MaxAge: 3000
 
-  # S3 Bucket Policy for public read access to static files
-  GuhaeStorageBucketPolicy:
+  # S3 bucket policy for public read access to static files
+  RentalPropertyAssetsBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref GuhaeStorageBucket
+      Bucket: !Ref RentalPropertyAssetsBucket
       PolicyDocument:
         Statement:
           - Effect: Allow
             Principal: "*"
             Action: s3:GetObject
-            Resource: !Sub "${GuhaeStorageBucket.Arn}/static/*"
+            Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/static/*"
 
-  # Single DynamoDB Table - Pay per request
-  GuhaeDataTable:
+  # DynamoDB table for rental properties data
+  RentalPropertiesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${AWS::StackName}-data"
+      TableName: !Sub "${AWS::StackName}-rental-properties"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: pk
@@ -68,11 +64,11 @@ Resources:
           Projection:
             ProjectionType: ALL
 
-  # IAM Role for Lambda functions
-  GuhaeServerlessRole:
+  # IAM Role for rental property Lambda functions
+  RentalPropertyLambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub "${AWS::StackName}-serverless-role"
+      RoleName: !Sub "${AWS::StackName}-lambda-execution-role"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -83,7 +79,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: GuhaeServerlessPolicy
+        - PolicyName: RentalPropertyLambdaPolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -96,274 +92,94 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:Scan
                 Resource:
-                  - !GetAtt GuhaeDataTable.Arn
-                  - !Sub "${GuhaeDataTable.Arn}/index/*"
+                  - !GetAtt RentalPropertiesTable.Arn
+                  - !Sub "${RentalPropertiesTable.Arn}/index/*"
               - Effect: Allow
                 Action:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:DeleteObject
-                Resource: !Sub "${GuhaeStorageBucket.Arn}/*"
+                Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/*"
               - Effect: Allow
                 Action:
                   - s3:ListBucket
-                Resource: !GetAtt GuhaeStorageBucket.Arn
+                Resource: !GetAtt RentalPropertyAssetsBucket.Arn
 
   # API Gateway for REST API
-  GuhaeApiGateway:
+  RentalPropertyApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Sub "${AWS::StackName}-api"
-      Description: Guhae Rental Property API
+      Name: !Sub "${AWS::StackName}-rental-property-api"
+      Description: Guhae Rental Property Management API
       EndpointConfiguration:
         Types:
           - REGIONAL
 
-  # Lambda function for API endpoints
-  GuhaeApiFunction:
+  # Lambda function for rental property API operations
+  RentalPropertyApiHandler:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-api"
+      FunctionName: !Sub "${AWS::StackName}-rental-property-api-handler"
       Runtime: python3.9
       Handler: lambda_function.lambda_handler
-      Role: !GetAtt GuhaeServerlessRole.Arn
+      Role: !GetAtt RentalPropertyLambdaExecutionRole.Arn
       Timeout: 30
       MemorySize: 512
       Environment:
         Variables:
-          DYNAMODB_TABLE_NAME: !Ref GuhaeDataTable
-          S3_BUCKET_NAME: !Ref GuhaeStorageBucket
-          AWS_REGION: !Ref AWS::Region
+          DYNAMODB_TABLE_NAME: !Ref RentalPropertiesTable
+          S3_BUCKET_NAME: !Ref RentalPropertyAssetsBucket
       Code:
         ZipFile: |
-          import json
-          import boto3
-          import os
-          import uuid
-          from datetime import datetime
-
-          # Initialize AWS clients
-          dynamodb = boto3.resource('dynamodb')
-          s3_client = boto3.client('s3')
-          table = dynamodb.Table(os.environ['DYNAMODB_TABLE_NAME'])
-          bucket_name = os.environ['S3_BUCKET_NAME']
-
+          # Placeholder - actual code will be packaged by deployment script
           def lambda_handler(event, context):
-              try:
-                  method = event['httpMethod']
-                  path = event['path']
-                  
-                  # CORS headers
-                  headers = {
-                      'Access-Control-Allow-Origin': '*',
-                      'Access-Control-Allow-Headers': 'Content-Type',
-                      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-                  }
-                  
-                  # Handle CORS preflight
-                  if method == 'OPTIONS':
-                      return {
-                          'statusCode': 200,
-                          'headers': headers,
-                          'body': ''
-                      }
-                  
-                  # Route requests
-                  if path == '/api/properties' and method == 'GET':
-                      return list_properties(headers)
-                  elif path == '/api/properties' and method == 'POST':
-                      return create_property(event, headers)
-                  elif path.startswith('/api/properties/') and method == 'GET':
-                      property_id = path.split('/')[-1]
-                      return get_property(property_id, headers)
-                  elif path.startswith('/api/properties/') and method == 'PUT':
-                      property_id = path.split('/')[-1]
-                      return update_property(property_id, event, headers)
-                  elif path.startswith('/api/properties/') and method == 'DELETE':
-                      property_id = path.split('/')[-1]
-                      return delete_property(property_id, headers)
-                  elif path == '/api/dashboard' and method == 'GET':
-                      return get_dashboard_stats(headers)
-                  else:
-                      return {
-                          'statusCode': 404,
-                          'headers': headers,
-                          'body': json.dumps({'error': 'Not found'})
-                      }
-              
-              except Exception as e:
-                  return {
-                      'statusCode': 500,
-                      'headers': headers,
-                      'body': json.dumps({'error': str(e)})
-                  }
-
-          def list_properties(headers):
-              response = table.scan(
-                  FilterExpression='begins_with(pk, :pk_prefix)',
-                  ExpressionAttributeValues={':pk_prefix': 'PROPERTY#'},
-                  Limit=50
-              )
-              properties = [format_property(item) for item in response.get('Items', [])]
-              return {
-                  'statusCode': 200,
-                  'headers': headers,
-                  'body': json.dumps({'properties': properties})
-              }
-
-          def create_property(event, headers):
-              data = json.loads(event['body'])
-              property_id = str(uuid.uuid4())
-              
-              item = {
-                  'pk': f'PROPERTY#{property_id}',
-                  'sk': 'METADATA',
-                  'gsi1pk': f'OWNER#{data.get("owner_id", "default-owner")}',
-                  'id': property_id,
-                  'title': data.get('title', ''),
-                  'description': data.get('description', ''),
-                  'address': data.get('address', ''),
-                  'price': data.get('price', 0),
-                  'property_type': data.get('property_type', 'residential'),
-                  'status': 'active',
-                  'created_at': datetime.utcnow().isoformat(),
-                  'updated_at': datetime.utcnow().isoformat()
-              }
-              
-              table.put_item(Item=item)
-              return {
-                  'statusCode': 201,
-                  'headers': headers,
-                  'body': json.dumps({'property': format_property(item)})
-              }
-
-          def get_property(property_id, headers):
-              response = table.get_item(
-                  Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'}
-              )
-              
-              if 'Item' not in response:
-                  return {
-                      'statusCode': 404,
-                      'headers': headers,
-                      'body': json.dumps({'error': 'Property not found'})
-                  }
-              
-              return {
-                  'statusCode': 200,
-                  'headers': headers,
-                  'body': json.dumps({'property': format_property(response['Item'])})
-              }
-
-          def update_property(property_id, event, headers):
-              data = json.loads(event['body'])
-              data['updated_at'] = datetime.utcnow().isoformat()
-              
-              # Build update expression
-              update_expression = "SET "
-              expression_values = {}
-              
-              for key, value in data.items():
-                  update_expression += f"{key} = :{key}, "
-                  expression_values[f":{key}"] = value
-              
-              update_expression = update_expression.rstrip(', ')
-              
-              response = table.update_item(
-                  Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'},
-                  UpdateExpression=update_expression,
-                  ExpressionAttributeValues=expression_values,
-                  ReturnValues='ALL_NEW'
-              )
-              
-              return {
-                  'statusCode': 200,
-                  'headers': headers,
-                  'body': json.dumps({'property': format_property(response['Attributes'])})
-              }
-
-          def delete_property(property_id, headers):
-              table.delete_item(
-                  Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'}
-              )
-              
-              return {
-                  'statusCode': 200,
-                  'headers': headers,
-                  'body': json.dumps({'message': 'Property deleted'})
-              }
-
-          def get_dashboard_stats(headers):
-              response = table.scan(
-                  FilterExpression='begins_with(pk, :pk_prefix)',
-                  ExpressionAttributeValues={':pk_prefix': 'PROPERTY#'},
-                  Select='COUNT'
-              )
-              
-              stats = {
-                  'total_properties': response['Count'],
-                  'active_properties': response['Count'],  # Simplified
-                  'total_users': 1,
-                  'total_leases': 0
-              }
-              
-              return {
-                  'statusCode': 200,
-                  'headers': headers,
-                  'body': json.dumps(stats)
-              }
-
-          def format_property(item):
-              # Remove DynamoDB keys and format for API
-              formatted = {k: v for k, v in item.items() if not k.startswith(('pk', 'sk', 'gsi'))}
-              formatted.setdefault('images', [])
-              return formatted
+              return {'statusCode': 200, 'body': 'Hello from Lambda'}
 
   # API Gateway Deployment
-  GuhaeApiDeployment:
+  RentalPropertyApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - GuhaeApiProxyMethod
+      - RentalPropertyApiProxyMethod
     Properties:
-      RestApiId: !Ref GuhaeApiGateway
+      RestApiId: !Ref RentalPropertyApiGateway
       StageName: prod
 
-  # API Gateway Resource (catch-all proxy)
-  GuhaeApiProxyResource:
+  # API Gateway catch-all proxy resource
+  RentalPropertyApiProxyResource:
     Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref GuhaeApiGateway
-      ParentId: !GetAtt GuhaeApiGateway.RootResourceId
+      RestApiId: !Ref RentalPropertyApiGateway
+      ParentId: !GetAtt RentalPropertyApiGateway.RootResourceId
       PathPart: "{proxy+}"
 
-  # API Gateway Method
-  GuhaeApiProxyMethod:
+  # API Gateway proxy method for Lambda integration
+  RentalPropertyApiProxyMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref GuhaeApiGateway
-      ResourceId: !Ref GuhaeApiProxyResource
+      RestApiId: !Ref RentalPropertyApiGateway
+      ResourceId: !Ref RentalPropertyApiProxyResource
       HttpMethod: ANY
       AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GuhaeApiFunction.Arn}/invocations"
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RentalPropertyApiHandler.Arn}/invocations"
 
-  # Lambda permission for API Gateway
-  GuhaeApiPermission:
+  # Lambda permission for API Gateway integration
+  RentalPropertyApiPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref GuhaeApiFunction
+      FunctionName: !Ref RentalPropertyApiHandler
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GuhaeApiGateway}/*/ANY/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RentalPropertyApiGateway}/*/ANY/*"
 
   # CloudFront Distribution for global CDN and static hosting
-  GuhaeCloudfrontDistribution:
+  RentalPropertyWebDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Comment: Guhae Rental Property App CDN
+        Comment: Guhae Rental Property Management App CDN
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
@@ -373,14 +189,14 @@ Resources:
             TargetOriginId: ApiOrigin
             ViewerProtocolPolicy: https-only
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
-            OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # Managed-CORS-S3Origin
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt GuhaeStorageBucket.RegionalDomainName
+            DomainName: !GetAtt RentalPropertyAssetsBucket.RegionalDomainName
             S3OriginConfig:
               OriginAccessIdentity: ""
           - Id: ApiOrigin
-            DomainName: !Sub "${GuhaeApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+            DomainName: !Sub "${RentalPropertyApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
             CustomOriginConfig:
               HTTPPort: 443
               OriginProtocolPolicy: https-only
@@ -391,30 +207,30 @@ Resources:
 Outputs:
   ApiGatewayUrl:
     Description: "API Gateway URL"
-    Value: !Sub "https://${GuhaeApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Value: !Sub "https://${RentalPropertyApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod"
     Export:
       Name: !Sub "${AWS::StackName}-ApiUrl"
 
   CloudFrontUrl:
-    Description: "CloudFront Distribution URL"
-    Value: !Sub "https://${GuhaeCloudfrontDistribution.DomainName}"
+    Description: "CloudFront Distribution URL for Rental Property App"
+    Value: !Sub "https://${RentalPropertyWebDistribution.DomainName}"
     Export:
       Name: !Sub "${AWS::StackName}-WebUrl"
 
-  StorageBucketName:
-    Description: "S3 Bucket for storage"
-    Value: !Ref GuhaeStorageBucket
+  RentalPropertyAssetsBucketName:
+    Description: "S3 bucket for rental property assets and static files"
+    Value: !Ref RentalPropertyAssetsBucket
     Export:
       Name: !Sub "${AWS::StackName}-StorageBucket"
 
-  DataTableName:
-    Description: "DynamoDB table for data"
-    Value: !Ref GuhaeDataTable
+  RentalPropertiesTableName:
+    Description: "DynamoDB table for rental properties data"
+    Value: !Ref RentalPropertiesTable
     Export:
-      Name: !Sub "${AWS::StackName}-DataTable"
+      Name: !Sub "${AWS::StackName}-RentalPropertiesTable"
 
-  LambdaFunctionName:
-    Description: "Lambda function name"
-    Value: !Ref GuhaeApiFunction
+  RentalPropertyApiHandlerName:
+    Description: "Rental property API handler Lambda function name"
+    Value: !Ref RentalPropertyApiHandler
     Export:
-      Name: !Sub "${AWS::StackName}-LambdaFunction"
+      Name: !Sub "${AWS::StackName}-RentalPropertyApiHandler"

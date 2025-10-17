@@ -1,6 +1,6 @@
 """
-Minimal configuration for low-cost deployment
-Uses simplified AWS services and single-table DynamoDB design
+Guhae Serverless Configuration
+Uses serverless AWS services and single-table DynamoDB design
 """
 import os
 from typing import Dict, Any
@@ -10,16 +10,16 @@ class Config:
     AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
     
     # DynamoDB - Single table for everything
-    DYNAMODB_TABLE_NAME = os.getenv('DYNAMODB_TABLE_NAME', 'guhae-minimal-data')
+    DYNAMODB_TABLE_NAME = os.getenv('DYNAMODB_TABLE_NAME', 'guhae-serverless-data')
     
     # S3 - Single bucket for all storage
-    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'guhae-minimal-storage')
+    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'guhae-serverless-storage')
     
-    # App Settings
-    FLASK_ENV = os.getenv('FLASK_ENV', 'production')
+    # App Settings (for future use)
+    ENV = os.getenv('ENV', 'production')
     SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-this')
     
-    # Feature flags for minimal deployment
+    # Feature flags for serverless deployment
     FEATURES = {
         'email_notifications': False,  # Disable SES to save costs
         'advanced_monitoring': False,  # Disable CloudWatch custom metrics

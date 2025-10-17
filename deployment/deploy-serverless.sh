@@ -21,152 +21,14 @@ package_lambda() {
     mkdir -p lambda-package
     cd lambda-package
     
-    # Copy minimal application code
-    cp -r ../../src .
+    # Copy our dedicated Lambda function
+    cp ../../src/lambda_function.py .
     
-    # Create Lambda handler that wraps our Flask app
-    cat > lambda_function.py << 'EOF'
-import json
-import boto3
-import os
-import uuid
-import sys
-from datetime import datetime
-
-# Add src directory to path
-sys.path.insert(0, '/var/task/src')
-
-# Initialize AWS clients
-dynamodb = boto3.resource('dynamodb')
-s3_client = boto3.client('s3')
-table_name = os.environ.get('DYNAMODB_TABLE_NAME')
-bucket_name = os.environ.get('S3_BUCKET_NAME')
-
-if table_name:
-    table = dynamodb.Table(table_name)
-
-def lambda_handler(event, context):
-    try:
-        # Get HTTP method and path
-        method = event.get('httpMethod', 'GET')
-        path = event.get('path', '/')
-        
-        # CORS headers
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-            'Content-Type': 'application/json'
-        }
-        
-        # Handle CORS preflight
-        if method == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': ''
-            }
-        
-        # Import our services
-        from services.properties import PropertyService
-        property_service = PropertyService()
-        
-        # Route API requests
-        if path.startswith('/api/properties'):
-            if method == 'GET' and path == '/api/properties':
-                properties = property_service.list_properties(limit=50)
-                return {
-                    'statusCode': 200,
-                    'headers': headers,
-                    'body': json.dumps({'properties': properties})
-                }
-            
-            elif method == 'POST' and path == '/api/properties':
-                body = json.loads(event.get('body', '{}'))
-                property_data = property_service.create_property(body)
-                return {
-                    'statusCode': 201,
-                    'headers': headers,
-                    'body': json.dumps({'property': property_data})
-                }
-            
-            elif method == 'GET' and '/' in path.split('/api/properties/')[-1]:
-                property_id = path.split('/')[-1]
-                property_data = property_service.get_property(property_id)
-                if property_data:
-                    return {
-                        'statusCode': 200,
-                        'headers': headers,
-                        'body': json.dumps({'property': property_data})
-                    }
-                else:
-                    return {
-                        'statusCode': 404,
-                        'headers': headers,
-                        'body': json.dumps({'error': 'Property not found'})
-                    }
-            
-            elif method == 'PUT' and '/' in path.split('/api/properties/')[-1]:
-                property_id = path.split('/')[-1]
-                body = json.loads(event.get('body', '{}'))
-                property_data = property_service.update_property(property_id, body)
-                if property_data:
-                    return {
-                        'statusCode': 200,
-                        'headers': headers,
-                        'body': json.dumps({'property': property_data})
-                    }
-                else:
-                    return {
-                        'statusCode': 404,
-                        'headers': headers,
-                        'body': json.dumps({'error': 'Property not found'})
-                    }
-            
-            elif method == 'DELETE' and '/' in path.split('/api/properties/')[-1]:
-                property_id = path.split('/')[-1]
-                success = property_service.delete_property(property_id)
-                return {
-                    'statusCode': 200 if success else 404,
-                    'headers': headers,
-                    'body': json.dumps({'success': success})
-                }
-        
-        elif path == '/api/dashboard' and method == 'GET':
-            stats = property_service.get_dashboard_stats()
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps(stats)
-            }
-        
-        elif path == '/api/health' and method == 'GET':
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps({
-                    'status': 'healthy',
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'version': 'serverless-1.0'
-                })
-            }
-        
-        # Default response for non-API requests
-        else:
-            return {
-                'statusCode': 404,
-                'headers': headers,
-                'body': json.dumps({'error': 'Not found'})
-            }
+    # Copy any additional source files if needed (currently our lambda_function.py is self-contained)
+    # Note: If we need other modules, we can copy them here
     
-    except Exception as e:
-        print(f"Lambda error: {str(e)}")
-        return {
-            'statusCode': 500,
-            'headers': headers,
-            'body': json.dumps({'error': 'Internal server error'})
-        }
-EOF
+    # Install dependencies (none for basic setup, but ready for future)
+    echo "# Lambda package contents:" > package_info.txt
 
     # Create requirements for Lambda
     cat > requirements.txt << 'EOF'
@@ -213,7 +75,7 @@ deploy_serverless_infrastructure() {
     LAMBDA_FUNCTION_NAME=$(aws cloudformation describe-stacks \
         --stack-name $STACK_NAME \
         --region $REGION \
-        --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' \
+        --query 'Stacks[0].Outputs[?OutputKey==`RentalPropertyApiHandlerName`].OutputValue' \
         --output text)
     
     aws lambda update-function-code \

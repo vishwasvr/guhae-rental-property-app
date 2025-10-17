@@ -1,0 +1,148 @@
+# 🚀 Deployment Guide
+
+## Overview
+
+Complete guide for deploying the Guhae rental property management application.
+
+## Prerequisites
+
+- **AWS CLI** installed and configured
+- **Python 3.9+** (Lambda runtime compatible)
+- **Git** (for version control and deployment)
+- **AWS Account** with appropriate permissions
+- **Dedicated IAM User** (see [Security Setup](SECURITY.md))
+
+## Deployment Process
+
+### Step 1: Clone Repository
+
+```bash
+git clone https://github.com/vishwasvr/guhae-rental-property-app.git
+cd guhae-rental-property-app
+```
+
+### Step 2: Set up AWS IAM User
+
+Complete the [Security Setup Guide](SECURITY.md) first.
+
+### Step 3: Deploy Infrastructure & Code
+
+```bash
+cd deployment
+
+# Method 1: Secure deployment with dedicated user (RECOMMENDED)
+AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
+
+# Method 2: Using default AWS credentials (less secure)
+./deploy-serverless.sh all
+```
+
+### Step 4: Verify Deployment
+
+The script will output:
+
+- ✅ **Infrastructure**: CloudFormation stack with semantic resource names
+- ✅ **Lambda Function**: Rental property API handler with proper code
+- ✅ **Static Files**: Upload website assets to S3 bucket
+- ✅ **Testing**: Automatic API endpoint validation
+
+**Example Output:**
+
+```bash
+✅ Serverless infrastructure deployed!
+📦 Lambda package created: lambda-deployment.zip
+⬆️  Uploading Lambda function code...
+🌐 API URL: https://abc123.execute-api.us-east-1.amazonaws.com/prod
+🌍 Website URL: https://d1234567890.cloudfront.net
+```
+
+## Deployment Options
+
+| **Component**           | **Command**                             | **Description**               |
+| ----------------------- | --------------------------------------- | ----------------------------- |
+| **Everything**          | `./deploy-serverless.sh all`            | Full deployment (recommended) |
+| **Infrastructure Only** | `./deploy-serverless.sh infrastructure` | CloudFormation stack only     |
+| **Code Update**         | `./deploy-serverless.sh code`           | Update Lambda function only   |
+| **Website Only**        | `./deploy-serverless.sh website`        | Upload static files only      |
+
+## What Gets Deployed
+
+| **Resource Type** | **Resource Name**                              | **Purpose**                        |
+| ----------------- | ---------------------------------------------- | ---------------------------------- |
+| **Lambda**        | `guhae-serverless-rental-property-api-handler` | API backend with semantic naming   |
+| **API Gateway**   | `guhae-serverless-rental-property-api`         | REST API endpoints                 |
+| **DynamoDB**      | `guhae-serverless-rental-properties`           | Properties data storage            |
+| **S3 Bucket**     | `guhae-serverless-assets-{AccountId}`          | Static files and property assets   |
+| **CloudFront**    | Distribution with semantic domain              | Global CDN for fast delivery       |
+| **IAM Role**      | `guhae-serverless-lambda-execution-role`       | Least-privilege Lambda permissions |
+
+## Verification Steps
+
+Test your API endpoints:
+
+```bash
+# Test dashboard
+curl https://YOUR-API-URL/api/dashboard
+
+# Test properties
+curl https://YOUR-API-URL/api/properties
+
+# Expected responses
+{"total_properties": 0, "active_properties": 0, "total_users": 1, "total_leases": 0}
+{"properties": []}
+```
+
+## Cost Monitoring
+
+After deployment, monitor costs in AWS Cost Explorer:
+
+- **Expected idle cost**: ~$0.50/month
+- **DynamoDB**: Pay-per-request (very low for testing)
+- **Lambda**: Pay-per-invocation (very low for testing)
+- **CloudFront**: Pay-per-GB transferred
+
+## Updating Existing Deployment
+
+### Update Lambda Code Only
+
+```bash
+cd deployment
+AWS_PROFILE=guhae-deployment ./deploy-serverless.sh code
+```
+
+### Update Infrastructure Only
+
+```bash
+cd deployment
+AWS_PROFILE=guhae-deployment ./deploy-serverless.sh infrastructure
+```
+
+### Full Update
+
+```bash
+cd deployment
+AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
+```
+
+## Cleanup
+
+To completely remove the application:
+
+```bash
+# Delete CloudFormation stack
+aws cloudformation delete-stack --stack-name guhae-serverless --region us-east-1
+
+# Empty and delete S3 bucket (if needed)
+aws s3 rm s3://guhae-serverless-assets-YOUR-ACCOUNT-ID --recursive
+aws s3 rb s3://guhae-serverless-assets-YOUR-ACCOUNT-ID
+```
+
+## Next Steps
+
+After successful deployment:
+
+1. Test all API endpoints (see [API Reference](API.md))
+2. Upload static website files
+3. Configure custom domain (optional)
+4. Set up monitoring and alerts
+5. Review [Troubleshooting Guide](TROUBLESHOOTING.md) for common issues
