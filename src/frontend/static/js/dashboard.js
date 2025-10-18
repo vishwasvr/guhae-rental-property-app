@@ -2,80 +2,93 @@
 
 // Dashboard utilities
 const DashboardUtils = {
-  // Initialize role-based dashboard
-  initializeRoleDashboard() {
+  // Initialize dashboard for property owner
+  async initializeDashboard() {
     const currentUser = AuthUtils.getCurrentUser();
-    if (currentUser && typeof window !== "undefined" && window.rbacManager) {
-      // Initialize RBAC
-      window.rbacManager.initialize(currentUser);
+    console.log(
+      "initializeDashboard - currentUser from localStorage:",
+      currentUser
+    );
 
-      // Apply role-based dashboard configuration
-      this.setupRoleBasedDashboard();
-
-      // Update user role display
-      this.updateUserRoleDisplay(currentUser);
-    }
-  },
-
-  // Setup dashboard based on user role
-  setupRoleBasedDashboard() {
-    if (typeof window === "undefined" || !window.rbacManager) return;
-
-    const currentUser = AuthUtils.getCurrentUser();
-    const role = window.rbacManager.currentRole;
-
-    if (role && window.ROLE_DASHBOARDS && window.ROLE_DASHBOARDS[role.name]) {
-      const dashboardConfig = window.ROLE_DASHBOARDS[role.name];
-
-      // Setup widgets based on role
-      this.setupRoleWidgets(dashboardConfig.widgets);
-
-      // Setup quick actions based on role
-      this.setupRoleActions(dashboardConfig.quickActions);
-    }
-  },
-
-  // Setup role-specific widgets
-  setupRoleWidgets(widgets) {
-    const availableWidgets = {
-      system_health: () => this.setupSystemHealthWidget(),
-      my_properties: () => this.setupMyPropertiesWidget(),
-      tenant_overview: () => this.setupTenantOverviewWidget(),
-      rental_income: () => this.setupRentalIncomeWidget(),
-      maintenance_requests: () => this.setupMaintenanceWidget(),
-      property_search: () => this.setupPropertySearchWidget(),
-      my_lease: () => this.setupMyLeaseWidget(),
-      rent_status: () => this.setupRentStatusWidget(),
-    };
-
-    // Hide all widgets first
-    document.querySelectorAll(".dashboard-widget").forEach((widget) => {
-      widget.style.display = "none";
-    });
-
-    // Show only permitted widgets
-    widgets.forEach((widgetName) => {
-      if (availableWidgets[widgetName]) {
-        availableWidgets[widgetName]();
+    if (currentUser) {
+      // Check if user data is missing profile info (from old login)
+      if (!currentUser.firstName && !currentUser.lastName) {
+        console.log(
+          "User data missing profile info, fetching fresh profile..."
+        );
+        await this.refreshUserProfile(currentUser);
+      } else {
+        this.updateUserDisplay(currentUser);
       }
-    });
+    } else {
+      console.log("No current user found");
+    }
   },
 
-  // Update user role display in dashboard
-  updateUserRoleDisplay(user) {
-    const roleElement = document.getElementById("user-role-display");
-    const nameElement = document.getElementById("user-name-display");
+  // Refresh user profile data if missing
+  async refreshUserProfile(currentUser) {
+    try {
+      // Pass user email as query parameter for authentication
+      const profileData = await APIUtils.get(
+        `/profile?email=${encodeURIComponent(currentUser.email)}`
+      );
+      if (profileData.success && profileData.profile) {
+        // Merge the fresh profile data with existing user data
+        const updatedUser = {
+          ...currentUser,
+          firstName: profileData.profile.firstName || "",
+          lastName: profileData.profile.lastName || "",
+          phone: profileData.profile.phone || "",
+          company: profileData.profile.company || "",
+        };
 
-    if (roleElement && window.rbacManager && window.rbacManager.currentRole) {
-      const role = window.rbacManager.currentRole;
-      roleElement.innerHTML = `<span class="badge bg-${window.rbacManager.getRoleColor(
-        role.name
-      )}">${role.label}</span>`;
+        // Update localStorage with complete user data
+        AuthUtils.updateUserInfo(updatedUser);
+
+        // Update display with fresh data
+        this.updateUserDisplay(updatedUser);
+      } else {
+        console.log(
+          "Profile not found or fetch failed, using email for display"
+        );
+        // If profile fetch fails or profile doesn't exist, still update display with what we have
+        // The User model will automatically use email as fallback for displayName
+        this.updateUserDisplay(currentUser);
+      }
+    } catch (error) {
+      console.log("Could not fetch fresh profile data:", error);
+      // Use email as display name when profile is not available
+      this.updateUserDisplay(currentUser);
+    }
+  },
+
+  // Setup dashboard for property owners
+
+  // Update user display in dashboard
+  updateUserDisplay(user) {
+    if (!user) {
+      console.log("updateUserDisplay: No user data provided");
+      return;
     }
 
-    if (nameElement && user) {
-      nameElement.textContent =
-        user.firstName + " " + user.lastName || user.email;
+    console.log("updateUserDisplay called with user:", user);
+
+    // Create a User model instance to use consistent display logic
+    const userModel = new User(user);
+    const displayName = userModel.displayName;
+
+    console.log("Computed displayName:", displayName);
+
+    // Update main dropdown button
+    const currentUserElement = document.getElementById("currentUser");
+    if (currentUserElement) {
+      currentUserElement.textContent = displayName;
+    }
+
+    // Update dropdown header
+    const dropdownNameElement = document.getElementById("dropdown-user-name");
+    if (dropdownNameElement) {
+      dropdownNameElement.textContent = displayName;
     }
   },
 
@@ -107,6 +120,12 @@ const DashboardUtils = {
     try {
       const data = await APIUtils.get("/properties");
       const container = document.getElementById("propertiesList");
+
+      // Store properties data globally for property detail modal
+      if (!window.dashboardData) {
+        window.dashboardData = {};
+      }
+      window.dashboardData.properties = data.properties || [];
 
       if (data.properties && data.properties.length > 0) {
         container.innerHTML = this.renderPropertiesList(data.properties);
@@ -175,7 +194,9 @@ const DashboardUtils = {
       .map((property) => {
         const propertyModel = new Property(property);
         return `
-        <div class="activity-item">
+        <div class="activity-item property-card" data-property-id="${
+          property.id
+        }" style="cursor: pointer;">
           <div class="d-flex align-items-center">
             <div class="flex-grow-1">
               <p class="mb-1">${propertyModel.title || "Untitled Property"}</p>
@@ -189,11 +210,14 @@ const DashboardUtils = {
                 }/month</span>
               </div>
             </div>
-            <span class="badge ${
-              propertyModel.isActive ? "bg-success" : "bg-secondary"
-            }">
-              ${propertyModel.isActive ? "Active" : "Inactive"}
-            </span>
+            <div class="d-flex align-items-center">
+              <span class="badge ${
+                propertyModel.isActive ? "bg-success" : "bg-secondary"
+              } me-2">
+                ${propertyModel.isActive ? "Active" : "Inactive"}
+              </span>
+              <i class="fas fa-chevron-right text-muted"></i>
+            </div>
           </div>
         </div>
       `;
@@ -255,6 +279,146 @@ const DashboardActions = {
       UIUtils.hideLoading(refreshBtn);
     });
   },
+
+  // Show property details in modal
+  async showPropertyDetail(propertyId) {
+    try {
+      // Find the property in the current data
+      const properties = window.dashboardData?.properties || [];
+      const property = properties.find((p) => p.id === propertyId);
+
+      if (!property) {
+        console.error("Property not found:", propertyId);
+        return;
+      }
+
+      // Store current property ID for editing
+      this.currentPropertyId = propertyId;
+
+      // Create property model for consistent formatting
+      const propertyModel = new Property(property);
+
+      // Populate modal content
+      const modalContent = document.getElementById("propertyDetailContent");
+      modalContent.innerHTML = this.renderPropertyDetailContent(propertyModel);
+
+      // Update modal title
+      document.getElementById("propertyDetailModalLabel").textContent =
+        propertyModel.title || "Property Details";
+
+      // Show the modal
+      const modal = new bootstrap.Modal(
+        document.getElementById("propertyDetailModal")
+      );
+      modal.show();
+    } catch (error) {
+      console.error("Error showing property details:", error);
+      alert("Failed to load property details. Please try again.");
+    }
+  },
+
+  // Render property detail content for modal
+  renderPropertyDetailContent(propertyModel) {
+    return `
+      <div class="row">
+        <div class="col-md-8">
+          <h6 class="text-muted mb-3">Property Information</h6>
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Title:</strong></div>
+            <div class="col-sm-8">${propertyModel.title || "N/A"}</div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Type:</strong></div>
+            <div class="col-sm-8">
+              <span class="badge bg-info">${
+                propertyModel.propertyTypeLabel
+              }</span>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Address:</strong></div>
+            <div class="col-sm-8">${propertyModel.address.format()}</div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Monthly Rent:</strong></div>
+            <div class="col-sm-8"><strong class="text-success">${
+              propertyModel.formattedRent
+            }</strong></div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Status:</strong></div>
+            <div class="col-sm-8">
+              <span class="badge ${
+                propertyModel.isActive ? "bg-success" : "bg-secondary"
+              }">
+                ${propertyModel.isActive ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
+          ${
+            propertyModel.bedrooms !== undefined
+              ? `
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Bedrooms:</strong></div>
+            <div class="col-sm-8">${propertyModel.bedrooms} bedroom${
+                  propertyModel.bedrooms !== 1 ? "s" : ""
+                }</div>
+          </div>
+          `
+              : ""
+          }
+          ${
+            propertyModel.bathrooms !== undefined
+              ? `
+          <div class="row mb-3">
+            <div class="col-sm-4"><strong>Bathrooms:</strong></div>
+            <div class="col-sm-8">${propertyModel.bathrooms} bathroom${
+                  propertyModel.bathrooms !== 1 ? "s" : ""
+                }</div>
+          </div>
+          `
+              : ""
+          }
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-muted mb-3">Property Details</h6>
+          <div class="mb-3">
+            <small class="text-muted">Created:</small><br>
+            <span>${new Date(
+              propertyModel.createdAt
+            ).toLocaleDateString()}</span>
+          </div>
+          <div class="mb-3">
+            <small class="text-muted">Property ID:</small><br>
+            <small class="font-monospace text-muted">${propertyModel.id}</small>
+          </div>
+        </div>
+      </div>
+      ${
+        propertyModel.description
+          ? `
+      <div class="mt-4">
+        <h6 class="text-muted mb-2">Description</h6>
+        <p class="text-muted">${propertyModel.description}</p>
+      </div>
+      `
+          : ""
+      }
+    `;
+  },
+
+  // Store current property for editing
+  currentPropertyId: null,
+
+  // Navigate to property details page
+  goToPropertyDetails() {
+    if (this.currentPropertyId) {
+      // Navigate to dedicated property detail page
+      window.location.href = `property_detail.html?id=${this.currentPropertyId}`;
+    } else {
+      alert("No property selected.");
+    }
+  },
 };
 
 // Initialize dashboard
@@ -264,16 +428,10 @@ function initDashboard() {
     return;
   }
 
-  // Initialize role-based dashboard
-  DashboardUtils.initializeRoleDashboard();
+  // Initialize dashboard
+  DashboardUtils.initializeDashboard();
 
-  // Set current user info
-  const user = AuthUtils.getCurrentUser();
-  if (user) {
-    document.getElementById("currentUser").textContent = user.displayName;
-  }
-
-  // Load all dashboard data (filtered by role permissions)
+  // Load dashboard data for property owner
   DashboardUtils.loadDashboardData();
   DashboardUtils.loadProperties();
   DashboardUtils.checkApiHealth();
@@ -289,6 +447,14 @@ function initDashboard() {
       DashboardActions.refresh();
     } else if (e.target.matches('[data-action="add-property"]')) {
       DashboardActions.addProperty();
+    } else if (e.target.matches("#detailsPropertyBtn")) {
+      // Handle details property button click
+      DashboardActions.goToPropertyDetails();
+    } else if (e.target.closest(".property-card")) {
+      // Handle property card clicks
+      const propertyCard = e.target.closest(".property-card");
+      const propertyId = propertyCard.getAttribute("data-property-id");
+      DashboardActions.showPropertyDetail(propertyId);
     }
   });
 }
@@ -296,6 +462,15 @@ function initDashboard() {
 // Export for global use
 window.DashboardUtils = DashboardUtils;
 window.DashboardActions = DashboardActions;
+
+// Global functions for HTML onclick handlers
+window.logout = function () {
+  DashboardActions.logout();
+};
+
+window.addProperty = function () {
+  DashboardActions.addProperty();
+};
 
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", initDashboard);

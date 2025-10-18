@@ -5,11 +5,13 @@ class User {
   constructor(data = {}) {
     this.id = data.id || null;
     this.email = data.email || "";
-    this.firstName = data.firstName || "";
-    this.lastName = data.lastName || "";
+    // Handle both our format and Cognito format for names
+    this.firstName =
+      data.firstName || data.given_name || data.name?.split(" ")[0] || "";
+    this.lastName =
+      data.lastName || data.family_name || data.name?.split(" ")[1] || "";
     this.phone = data.phone || "";
     this.dateOfBirth = data.dateOfBirth || "";
-    this.accountType = data.accountType || "tenant";
     this.company = data.company || "";
     this.address = new Address(data.address || {});
     this.createdAt = data.createdAt || null;
@@ -48,10 +50,6 @@ class User {
       errors.push("Please enter a valid phone number");
     }
 
-    if (!this.accountType) {
-      errors.push("Account type is required");
-    }
-
     // Validate address
     const addressValidation = this.address.validate();
     if (!addressValidation.isValid) {
@@ -64,41 +62,29 @@ class User {
     };
   }
 
-  // Get user role information
-  getRole() {
-    if (typeof window !== "undefined" && window.USER_ROLES) {
-      const roleMap = {
-        admin: window.USER_ROLES.ADMIN,
-        owner: window.USER_ROLES.OWNER,
-        property_manager: window.USER_ROLES.PROPERTY_MANAGER,
-        tenant: window.USER_ROLES.TENANT,
-        prospect: window.USER_ROLES.PROSPECT,
-      };
-      return roleMap[this.accountType] || window.USER_ROLES.GUEST;
-    }
-    return null;
-  }
-
-  // Check if user has specific permission
+  // All users are property owners with full permissions
   hasPermission(permission) {
-    if (typeof window !== "undefined" && window.rbacManager) {
-      return window.rbacManager.hasPermission(permission);
-    }
-    return false;
+    return true; // All users are owners with full permissions
   }
 
-  // Get user's permission level
-  getPermissionLevel() {
-    const role = this.getRole();
-    return role ? role.level : 0;
-  }
-
-  // Check if user can access resource
+  // All users can access all resources
   canAccess(resourceType, action = "read") {
-    if (typeof window !== "undefined" && window.rbacManager) {
-      return window.rbacManager.hasPermission(`${resourceType}.${action}`);
-    }
-    return false;
+    return true; // All users are owners with full access
+  }
+
+  // All users are property owners with full permissions
+  hasPermission(permission) {
+    return true; // All users are owners with full permissions
+  }
+
+  // All users have owner-level permissions
+  getPermissionLevel() {
+    return 80; // Owner permission level
+  }
+
+  // All users can access all resources
+  canAccess(resourceType, action = "read") {
+    return true; // All users are owners with full access
   }
 
   // Convert to API format
@@ -109,8 +95,6 @@ class User {
       lastName: this.lastName,
       phone: this.phone,
       dateOfBirth: this.dateOfBirth,
-      accountType: this.accountType,
-      role: this.accountType, // Include role for backend
       company: this.company,
       address: this.address.toApiFormat(),
     };
@@ -125,7 +109,6 @@ class User {
       lastName: data.lastName,
       phone: data.phone,
       dateOfBirth: data.dateOfBirth,
-      accountType: data.accountType,
       company: data.company,
       address: data.address,
       createdAt: data.createdAt,
@@ -187,21 +170,26 @@ class Property {
     this.id = data.id || null;
     this.title = data.title || "";
     this.description = data.description || "";
-    this.propertyType = data.propertyType || "";
+    // Handle both API format (property_type) and frontend format (propertyType)
+    this.propertyType = data.propertyType || data.property_type || "";
     this.address = new Address(data.address || {});
     this.bedrooms = data.bedrooms || 0;
     this.bathrooms = data.bathrooms || 0;
     this.squareFootage = data.squareFootage || null;
-    this.rent = data.rent || 0;
+    // Handle both API format (price) and frontend format (rent)
+    this.rent = data.rent || data.price || 0;
     this.deposit = data.deposit || 0;
     this.availableDate = data.availableDate || "";
     this.leaseTerm = data.leaseTerm || "";
     this.amenities = data.amenities || [];
     this.images = data.images || [];
     this.landlordId = data.landlordId || null;
-    this.isActive = data.isActive !== undefined ? data.isActive : true;
-    this.createdAt = data.createdAt || null;
-    this.updatedAt = data.updatedAt || null;
+    // Handle both API format (status === 'active') and frontend format (isActive)
+    this.isActive =
+      data.isActive !== undefined ? data.isActive : data.status === "active";
+    // Handle both API format (created_at) and frontend format (createdAt)
+    this.createdAt = data.createdAt || data.created_at || null;
+    this.updatedAt = data.updatedAt || data.updated_at || null;
   }
 
   get formattedRent() {

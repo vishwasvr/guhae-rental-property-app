@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- House icon for rental property app -->
+  <rect width="32" height="32" fill="#4F46E5"/>
+  <path d="M16 4 L28 14 L25 14 L25 26 L7 26 L7 14 L4 14 Z" fill="white"/>
+  <rect x="10" y="18" width="4" height="8" fill="#4F46E5"/>
+  <rect x="18" y="16" width="4" height="4" fill="#4F46E5"/>
+</svg>

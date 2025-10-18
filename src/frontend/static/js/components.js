@@ -40,48 +40,6 @@ const Components = {
     return select;
   },
 
-  // Create account type select element
-  createAccountTypeSelect(options = {}) {
-    const {
-      id = "accountType",
-      name = "accountType",
-      required = true,
-      disabled = false,
-      selectedValue = "",
-      placeholder = "Select Account Type",
-      className = "form-select",
-      showDescriptions = false,
-    } = options;
-
-    const select = document.createElement("select");
-    select.id = id;
-    select.name = name;
-    select.className = className;
-    select.required = required;
-    select.disabled = disabled;
-
-    // Add placeholder option
-    const placeholderOption = document.createElement("option");
-    placeholderOption.value = "";
-    placeholderOption.textContent = placeholder;
-    select.appendChild(placeholderOption);
-
-    // Add account type options
-    ACCOUNT_TYPES.forEach((type) => {
-      const option = document.createElement("option");
-      option.value = type.value;
-      option.textContent = showDescriptions
-        ? `${type.label} - ${type.description}`
-        : type.label;
-      if (type.value === selectedValue) {
-        option.selected = true;
-      }
-      select.appendChild(option);
-    });
-
-    return select;
-  },
-
   // Create property type select element
   createPropertyTypeSelect(options = {}) {
     const {

@@ -55,42 +55,6 @@ const US_STATES = [
   { code: "DC", name: "District of Columbia" },
 ];
 
-// Account types for users and tenants (Role-Based)
-const ACCOUNT_TYPES = [
-  {
-    value: "owner",
-    label: "Property Owner",
-    description: "Property owner with full management rights",
-    permissions:
-      "Full property management, tenant management, financial control",
-  },
-  {
-    value: "property_manager",
-    label: "Property Manager",
-    description: "Manages properties on behalf of owners",
-    permissions:
-      "Property management, tenant relations, maintenance coordination",
-  },
-  {
-    value: "tenant",
-    label: "Tenant",
-    description: "Current tenant renting a property",
-    permissions: "View lease, pay rent, submit maintenance requests",
-  },
-  {
-    value: "prospect",
-    label: "Prospective Tenant",
-    description: "Looking for rental properties",
-    permissions: "Browse properties, submit applications",
-  },
-  {
-    value: "admin",
-    label: "System Administrator",
-    description: "Full system access and management",
-    permissions: "Complete system administration and oversight",
-  },
-];
-
 // Property types for rental listings
 const PROPERTY_TYPES = [
   {
@@ -173,12 +137,6 @@ const DataUtils = {
     return state ? state.code : stateName;
   },
 
-  // Get account type label
-  getAccountTypeLabel(accountType) {
-    const type = ACCOUNT_TYPES.find((t) => t.value === accountType);
-    return type ? type.label : accountType;
-  },
-
   // Get property type label
   getPropertyTypeLabel(propertyType) {
     const type = PROPERTY_TYPES.find((t) => t.value === propertyType);
@@ -216,7 +174,6 @@ const DataUtils = {
 
 // Export data for global use
 window.US_STATES = US_STATES;
-window.ACCOUNT_TYPES = ACCOUNT_TYPES;
 window.PROPERTY_TYPES = PROPERTY_TYPES;
 window.PROPERTY_AMENITIES = PROPERTY_AMENITIES;
 window.LEASE_TERMS = LEASE_TERMS;

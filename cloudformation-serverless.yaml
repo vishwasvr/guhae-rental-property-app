@@ -1,0 +1,328 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: SERVERLESS Guhae rental property app - Lambda-based for ultra-low costs
+
+# No parameters needed for this template
+
+Resources:
+  # S3 bucket for static files and rental property assets
+  RentalPropertyAssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-assets-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
+            AllowedOrigins: ["*"]
+            MaxAge: 3000
+
+  # S3 bucket policy for public read access to static files
+  RentalPropertyAssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RentalPropertyAssetsBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/*"
+
+  # Cognito User Pool for authentication
+  RentalPropertyUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-user-pool"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      UserPoolTags:
+        Name: !Sub "${AWS::StackName}-user-pool"
+
+  # Cognito User Pool Client
+  RentalPropertyUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-app-client"
+      UserPoolId: !Ref RentalPropertyUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      AccessTokenValidity: 24
+      IdTokenValidity: 24
+      RefreshTokenValidity: 30
+
+  # DynamoDB table for rental properties data
+  RentalPropertiesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-rental-properties"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # IAM Role for rental property Lambda functions
+  RentalPropertyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-lambda-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RentalPropertyLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt RentalPropertiesTable.Arn
+                  - !Sub "${RentalPropertiesTable.Arn}/index/*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "${RentalPropertyAssetsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt RentalPropertyAssetsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminInitiateAuth
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:ListUsers
+                Resource: !GetAtt RentalPropertyUserPool.Arn
+
+  # API Gateway for REST API
+  RentalPropertyApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-rental-property-api"
+      Description: Guhae Rental Property Management API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # Lambda function for rental property API operations
+  RentalPropertyApiHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-rental-property-api-handler"
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt RentalPropertyLambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref RentalPropertiesTable
+          S3_BUCKET_NAME: !Ref RentalPropertyAssetsBucket
+          COGNITO_USER_POOL_ID: !Ref RentalPropertyUserPool
+          COGNITO_CLIENT_ID: !Ref RentalPropertyUserPoolClient
+      Code:
+        ZipFile: |
+          # Placeholder - actual code will be packaged by deployment script
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Hello from Lambda'}
+
+  # API Gateway Deployment
+  RentalPropertyApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - RentalPropertyApiRootMethod
+      - RentalPropertyApiProxyMethod
+    Properties:
+      RestApiId: !Ref RentalPropertyApiGateway
+      StageName: prod
+
+  # API Gateway root method for handling "/" path
+  RentalPropertyApiRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RentalPropertyApiGateway
+      ResourceId: !GetAtt RentalPropertyApiGateway.RootResourceId
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RentalPropertyApiHandler.Arn}/invocations"
+
+  # API Gateway catch-all proxy resource
+  RentalPropertyApiProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RentalPropertyApiGateway
+      ParentId: !GetAtt RentalPropertyApiGateway.RootResourceId
+      PathPart: "{proxy+}"
+
+  # API Gateway proxy method for Lambda integration
+  RentalPropertyApiProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RentalPropertyApiGateway
+      ResourceId: !Ref RentalPropertyApiProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RentalPropertyApiHandler.Arn}/invocations"
+
+  # Lambda permission for API Gateway integration
+  RentalPropertyApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RentalPropertyApiHandler
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RentalPropertyApiGateway}/*/*"
+
+  # CloudFront Distribution for global CDN and static hosting
+  RentalPropertyWebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Guhae Rental Property Management App CDN
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c # Managed-SimpleCORS
+        CacheBehaviors:
+          - PathPattern: "/api/*"
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+            ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c # Managed-SimpleCORS
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt RentalPropertyAssetsBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: ApiOrigin
+            DomainName: !Sub "${RentalPropertyApiGateway}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              HTTPPort: 443
+              OriginProtocolPolicy: https-only
+            OriginPath: /prod
+        Enabled: true
+        DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Outputs:
+  ApiGatewayUrl:
+    Description: "API Gateway URL"
+    Value: !Sub "https://${RentalPropertyApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  CloudFrontUrl:
+    Description: "CloudFront Distribution URL for Rental Property App"
+    Value: !Sub "https://${RentalPropertyWebDistribution.DomainName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-WebUrl"
+
+  RentalPropertyAssetsBucketName:
+    Description: "S3 bucket for rental property assets and static files"
+    Value: !Ref RentalPropertyAssetsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-StorageBucket"
+
+  StorageBucketName:
+    Description: "S3 bucket name for deployment script compatibility"
+    Value: !Ref RentalPropertyAssetsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-StorageBucketName"
+
+  RentalPropertiesTableName:
+    Description: "DynamoDB table for rental properties data"
+    Value: !Ref RentalPropertiesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-RentalPropertiesTable"
+
+  RentalPropertyApiHandlerName:
+    Description: "Rental property API handler Lambda function name"
+    Value: !Ref RentalPropertyApiHandler
+    Export:
+      Name: !Sub "${AWS::StackName}-RentalPropertyApiHandler"
+
+  CognitoUserPoolId:
+    Description: "Cognito User Pool ID for authentication"
+    Value: !Ref RentalPropertyUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoUserPoolId"
+
+  CognitoClientId:
+    Description: "Cognito User Pool Client ID"
+    Value: !Ref RentalPropertyUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoClientId"

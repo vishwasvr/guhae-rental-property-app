@@ -62,7 +62,15 @@ async function loadProfile() {
         );
 
         if (data.success && data.profile) {
+          console.log("Profile found in DynamoDB:", data.profile);
           loadProfileFromAPI(data.profile);
+          return;
+        } else {
+          console.log(
+            "Profile not found in DynamoDB, attempting to create from localStorage data"
+          );
+          // Profile doesn't exist in DynamoDB, try to create it from localStorage data
+          await createProfileFromLocalStorage(userInfo);
           return;
         }
       } catch (apiError) {
@@ -70,6 +78,23 @@ async function loadProfile() {
           "Profile API error, using localStorage fallback:",
           apiError
         );
+        console.log("Error status:", apiError.status);
+
+        // If it's a 404 (profile not found), try to create the profile
+        if (
+          apiError.status === 404 ||
+          apiError.message?.includes("Profile not found")
+        ) {
+          console.log(
+            "Profile not found (404 or message) - creating profile from localStorage"
+          );
+          await createProfileFromLocalStorage(userInfo);
+          return;
+        } else {
+          console.log("Other API error, falling back to localStorage display");
+          // For other errors, just display what we have in localStorage
+          loadProfileFromLocalStorage(userInfo);
+        }
       }
     }
 
@@ -84,8 +109,34 @@ async function loadProfile() {
 }
 
 function loadProfileFromStorage(userData) {
-  // Create user model from localStorage data
-  const user = new User(userData);
+  console.log("Loading profile from storage with userData:", userData);
+
+  // Handle both our format and Cognito format
+  const normalizedData = {
+    id: userData.id || userData.sub,
+    email: userData.email,
+    firstName:
+      userData.firstName ||
+      userData.given_name ||
+      userData.name?.split(" ")[0] ||
+      "",
+    lastName:
+      userData.lastName ||
+      userData.family_name ||
+      userData.name?.split(" ")[1] ||
+      "",
+    phone: userData.phone || userData.phone_number || "",
+    dateOfBirth: userData.dateOfBirth || userData.birthdate || "",
+    // Removed accountType field - all users are property owners now
+    company: userData.company || "",
+    address: userData.address || {},
+  };
+
+  console.log("Normalized userData:", normalizedData);
+
+  // Create user model from normalized data
+  const user = new User(normalizedData);
+  console.log("Created User model:", user);
 
   // Convert user model to profile format for form population
   const profile = {
@@ -98,10 +149,10 @@ function loadProfileFromStorage(userData) {
     city: user.address.city,
     state: user.address.state,
     zipCode: user.address.zipCode,
-    accountType: user.accountType,
     company: user.company,
   };
 
+  console.log("Profile data to populate form:", profile);
   populateProfileForm(profile);
 }
 
@@ -124,7 +175,6 @@ function loadProfileFromAPI(apiProfile) {
     city: user.address.city,
     state: user.address.state,
     zipCode: user.address.zipCode,
-    accountType: user.accountType,
     company: user.company,
   };
 
@@ -132,15 +182,91 @@ function loadProfileFromAPI(apiProfile) {
   console.log("Profile loaded from API:", user);
 }
 
+async function createProfileFromLocalStorage(userInfo) {
+  console.log("Creating profile in DynamoDB from localStorage:", userInfo);
+
+  try {
+    // Normalize the data like we do in loadProfileFromStorage
+    const normalizedData = {
+      id: userInfo.id || userInfo.sub,
+      email: userInfo.email,
+      firstName:
+        userInfo.firstName ||
+        userInfo.given_name ||
+        userInfo.name?.split(" ")[0] ||
+        "",
+      lastName:
+        userInfo.lastName ||
+        userInfo.family_name ||
+        userInfo.name?.split(" ")[1] ||
+        "",
+      phone: userInfo.phone || userInfo.phone_number || "",
+      dateOfBirth: userInfo.dateOfBirth || userInfo.birthdate || "",
+      company: userInfo.company || "",
+      address: userInfo.address || {},
+    };
+
+    // Create the profile in DynamoDB
+    const profileData = {
+      email: normalizedData.email,
+      firstName: normalizedData.firstName,
+      lastName: normalizedData.lastName,
+      phone: normalizedData.phone,
+      dateOfBirth: normalizedData.dateOfBirth,
+      address: normalizedData.address,
+      company: normalizedData.company,
+    };
+
+    console.log("Sending profile data to API:", profileData);
+
+    const response = await APIUtils.put("/profile", profileData);
+
+    if (response.success) {
+      console.log("Profile created successfully, loading from API");
+      loadProfileFromAPI(response.profile);
+      showAlert("Profile initialized successfully", "success");
+    } else {
+      throw new Error(response.message || "Failed to create profile");
+    }
+  } catch (error) {
+    console.error("Error creating profile:", error);
+    showAlert("Could not initialize profile. Using local data.", "error");
+    // Fall back to localStorage data
+    loadProfileFromStorage(userInfo);
+  }
+}
+
 function populateProfileForm(profile) {
+  console.log("Populating form with profile:", profile);
+
   // Store original data for cancel functionality
   originalProfileData = { ...profile };
 
   // Populate form fields
   Object.keys(profile).forEach((key) => {
     const element = document.getElementById(key);
+    const value =
+      profile[key] !== undefined && profile[key] !== null
+        ? String(profile[key])
+        : "";
+    console.log(`Setting ${key} = "${value}" -> element found:`, !!element);
+
     if (element) {
-      element.value = profile[key];
+      if (element.tagName === "SELECT") {
+        // For select elements, set the selected option
+        element.value = value;
+        console.log(
+          `Select ${key} set to: ${element.value} (options: ${Array.from(
+            element.options
+          )
+            .map((o) => o.value)
+            .join(", ")})`
+        );
+      } else {
+        element.value = value;
+      }
+    } else {
+      console.warn(`No element found for field: ${key}`);
     }
   });
 }
@@ -213,34 +339,63 @@ async function handleProfileUpdate(event) {
       document.getElementById("profileForm")
     );
 
+    // Remove email from form data if it exists (email should never change)
+    delete formData.email;
+
+    console.log("Form data collected (email excluded):", formData);
+    console.log("Profile save initiated at:", new Date().toISOString());
+
     // Create user model from form data (keeping existing email)
     const currentUser = AuthUtils.getCurrentUser();
+    console.log("Current user from localStorage:", currentUser);
+
     const updatedUser = new User({
       email: currentUser.email, // Keep existing email
       firstName: formData.firstName,
       lastName: formData.lastName,
       phone: formData.phone,
       dateOfBirth: formData.dateOfBirth,
-      accountType: formData.accountType,
       company: formData.company || null,
       address: Address.fromFormData(formData),
     });
+    console.log("Created updated user model:", updatedUser);
 
     // Validate using model validation
     const validation = updatedUser.validate();
     if (!validation.isValid) {
+      console.error("Validation failed:", validation.errors);
       throw new Error(validation.errors[0]);
     }
 
     // Send to backend API using model's API format
     const updatePayload = updatedUser.toApiFormat();
-    updatePayload.email = currentUser.email; // Ensure email is included for backend identification
 
-    const result = await APIUtils.put("/profile", updatePayload);
+    // For profile updates, only send email for identification, not as a field to update
+    const profileUpdatePayload = {
+      email: currentUser.email, // For backend identification only
+      firstName: updatePayload.firstName,
+      lastName: updatePayload.lastName,
+      phone: updatePayload.phone,
+      dateOfBirth: updatePayload.dateOfBirth,
+      company: updatePayload.company,
+      streetAddress: updatePayload.address.streetAddress,
+      city: updatePayload.address.city,
+      state: updatePayload.address.state,
+      zipCode: updatePayload.address.zipCode,
+    };
+
+    console.log("Sending update payload to API:", profileUpdatePayload);
+
+    const result = await APIUtils.put("/profile", profileUpdatePayload);
+    console.log("API response:", result);
 
     if (result.success) {
+      console.log("Profile update successful, updating localStorage");
       // Update localStorage with new user model data
       AuthUtils.storeAuthData(null, updatedUser);
+
+      // Reload the profile to show the updated data
+      await loadProfile();
     }
 
     showAlert("Profile updated successfully!");
@@ -255,7 +410,6 @@ async function handleProfileUpdate(event) {
       city: updatedUser.address.city,
       state: updatedUser.address.state,
       zipCode: updatedUser.address.zipCode,
-      accountType: updatedUser.accountType,
       company: updatedUser.company,
     };
     toggleEditMode();

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Property - Guhae</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="favicon.ico" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+      }
+
+      .navbar-brand {
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .form-container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        padding: 2rem;
+        margin-top: 2rem;
+      }
+
+      .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: #333;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: 600;
+      }
+
+      .btn-secondary {
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: 600;
+      }
+
+      .form-control,
+      .form-select {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 16px;
+        margin-bottom: 1rem;
+      }
+
+      .form-control:focus,
+      .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+      }
+
+      .alert {
+        border-radius: 10px;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+      <div class="container">
+        <a class="navbar-brand" href="dashboard.html">
+          <i class="fas fa-home me-2"></i>Guhae
+        </a>
+
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="dashboard.html">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <div class="form-container">
+            <div class="form-header">
+              <h2><i class="fas fa-plus-circle me-2"></i>Add New Property</h2>
+              <p class="text-muted">Add a property to your portfolio</p>
+            </div>
+
+            <!-- Success/Error Messages -->
+            <div id="successMessage" class="alert alert-success d-none">
+              <i class="fas fa-check-circle me-2"></i>
+              <span id="successText"></span>
+            </div>
+
+            <div id="errorMessage" class="alert alert-danger d-none">
+              <i class="fas fa-exclamation-circle me-2"></i>
+              <span id="errorText"></span>
+            </div>
+
+            <!-- Add Property Form -->
+            <form id="addPropertyForm">
+              <div class="row">
+                <div class="col-md-6">
+                  <label for="propertyTitle" class="form-label"
+                    >Property Title *</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="propertyTitle"
+                    name="title"
+                    placeholder="Beautiful 2BR Apartment"
+                    required
+                  />
+                </div>
+
+                <div class="col-md-6">
+                  <label for="propertyType" class="form-label"
+                    >Property Type *</label
+                  >
+                  <select
+                    class="form-select"
+                    id="propertyType"
+                    name="property_type"
+                    required
+                  >
+                    <option value="">Select property type</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="house">House</option>
+                    <option value="condo">Condominium</option>
+                    <option value="townhouse">Townhouse</option>
+                    <option value="studio">Studio</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Address Fields -->
+              <div class="mb-3">
+                <label for="streetAddress" class="form-label"
+                  >Street Address *</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="streetAddress"
+                  name="streetAddress"
+                  placeholder="123 Main Street"
+                  required
+                />
+              </div>
+
+              <div class="row">
+                <div class="col-md-4">
+                  <label for="city" class="form-label">City *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="city"
+                    name="city"
+                    placeholder="City"
+                    required
+                  />
+                </div>
+
+                <div class="col-md-4">
+                  <label for="state" class="form-label">State *</label>
+                  <select class="form-select" id="state" name="state" required>
+                    <option value="">Select State</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="zipCode" class="form-label">Zip Code *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="zipCode"
+                    name="zipCode"
+                    placeholder="12345"
+                    pattern="[0-9]{5}(-[0-9]{4})?"
+                    title="Please enter a valid zip code (12345 or 12345-6789)"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="propertyDescription" class="form-label"
+                  >Description</label
+                >
+                <textarea
+                  class="form-control"
+                  id="propertyDescription"
+                  name="description"
+                  rows="4"
+                  placeholder="Describe your property..."
+                ></textarea>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4">
+                  <label for="propertyPrice" class="form-label"
+                    >Monthly Rent ($) *</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="propertyPrice"
+                    name="price"
+                    placeholder="2000"
+                    min="0"
+                    required
+                  />
+                </div>
+
+                <div class="col-md-4">
+                  <label for="bedrooms" class="form-label">Bedrooms</label>
+                  <select class="form-select" id="bedrooms" name="bedrooms">
+                    <option value="">Select</option>
+                    <option value="0">Studio</option>
+                    <option value="1">1 Bedroom</option>
+                    <option value="2">2 Bedrooms</option>
+                    <option value="3">3 Bedrooms</option>
+                    <option value="4">4+ Bedrooms</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label for="bathrooms" class="form-label">Bathrooms</label>
+                  <select class="form-select" id="bathrooms" name="bathrooms">
+                    <option value="">Select</option>
+                    <option value="1">1 Bathroom</option>
+                    <option value="1.5">1.5 Bathrooms</option>
+                    <option value="2">2 Bathrooms</option>
+                    <option value="2.5">2.5 Bathrooms</option>
+                    <option value="3">3+ Bathrooms</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Submit Buttons -->
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                <a href="dashboard.html" class="btn btn-secondary me-md-2">
+                  <i class="fas fa-times me-2"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                  <i class="fas fa-plus me-2"></i>Add Property
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="static/js/data.js"></script>
+    <script src="static/js/utils.js"></script>
+    <script src="static/js/components.js"></script>
+    <script src="static/js/models.js"></script>
+    <script src="static/js/auth.js"></script>
+    <script src="static/js/add_property.js"></script>
+  </body>
+</html>

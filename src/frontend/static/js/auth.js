@@ -42,11 +42,6 @@ async function handleLogin(event) {
     // Store authentication data
     AuthUtils.storeAuthData(data.tokens, data.user);
 
-    // Initialize RBAC with user data
-    if (typeof window !== "undefined" && window.rbacManager) {
-      window.rbacManager.initialize(data.user);
-    }
-
     // Redirect to dashboard after a brief delay
     setTimeout(() => {
       window.location.href = "dashboard.html";
@@ -85,7 +80,6 @@ async function handleRegistration(event) {
     confirmPassword: document.getElementById("confirmPassword").value,
 
     // Profile Information
-    accountType: document.getElementById("accountType").value,
     company: document.getElementById("company").value.trim(),
 
     // Terms agreement
@@ -109,7 +103,6 @@ async function handleRegistration(event) {
       lastName: formData.lastName,
       phone: formData.phone,
       dateOfBirth: formData.dateOfBirth,
-      accountType: formData.accountType,
       company: formData.company || null,
       address: {
         streetAddress: formData.streetAddress,
@@ -169,7 +162,6 @@ function validateRegistrationForm(formData) {
     { field: "state", message: "State is required" },
     { field: "zipCode", message: "ZIP code is required" },
     { field: "password", message: "Password is required" },
-    { field: "accountType", message: "Account type is required" },
   ];
 
   // Check required fields
@@ -241,26 +233,58 @@ function showRegister() {
 
 // Initialize authentication page
 function initAuthPage() {
+  // Only redirect if we're on the main auth page (index.html)
+  const currentPage = window.location.pathname;
+  const isAuthPage =
+    currentPage === "/" ||
+    currentPage.endsWith("/index.html") ||
+    currentPage === "/index.html" ||
+    !currentPage ||
+    currentPage === "/index";
+
   // Check if user is already logged in
-  if (AuthUtils.isAuthenticated()) {
+  if (AuthUtils.isAuthenticated() && isAuthPage) {
     // User is already logged in, redirect to dashboard
     window.location.href = "dashboard.html";
     return;
   }
 
-  // Populate state dropdown using our components
-  Components.populateStateSelect("state");
+  // Only run auth page specific initialization if we're on the auth page
+  if (isAuthPage) {
+    // Populate state dropdown using our components
+    try {
+      if (typeof Components !== "undefined" && Components.populateStateSelect) {
+        Components.populateStateSelect("state");
+      }
+    } catch (error) {
+      console.warn("Could not populate state dropdown:", error);
+    }
 
-  // Add event listeners
-  document.getElementById("loginForm").addEventListener("submit", handleLogin);
-  document
-    .getElementById("registerForm")
-    .addEventListener("submit", handleRegistration);
+    // Add event listeners
+    try {
+      const loginForm = document.getElementById("loginForm");
+      const registerForm = document.getElementById("registerForm");
 
-  // Add subtle animation to the welcome card
-  const welcomeCard = document.querySelector(".welcome-card");
-  if (welcomeCard) {
-    UIUtils.animateIn(welcomeCard, 100);
+      if (loginForm) {
+        loginForm.addEventListener("submit", handleLogin);
+      }
+
+      if (registerForm) {
+        registerForm.addEventListener("submit", handleRegistration);
+      }
+    } catch (error) {
+      console.warn("Could not add form event listeners:", error);
+    }
+
+    // Add subtle animation to the welcome card
+    try {
+      const welcomeCard = document.querySelector(".welcome-card");
+      if (welcomeCard && typeof UIUtils !== "undefined" && UIUtils.animateIn) {
+        UIUtils.animateIn(welcomeCard, 100);
+      }
+    } catch (error) {
+      console.warn("Could not animate welcome card:", error);
+    }
   }
 }
 

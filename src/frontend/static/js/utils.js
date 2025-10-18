@@ -2,7 +2,8 @@
 
 // Configuration
 const CONFIG = {
-  API_BASE_URL: `${window.location.protocol}//${window.location.host}/api`,
+  API_BASE_URL:
+    "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api",
   STORAGE_KEYS: {
     ACCESS_TOKEN: "accessToken",
     ID_TOKEN: "idToken",
@@ -60,6 +61,16 @@ const AuthUtils = {
       );
     }
   },
+
+  // Update user info in localStorage
+  updateUserInfo(userInfo) {
+    if (userInfo) {
+      localStorage.setItem(
+        CONFIG.STORAGE_KEYS.USER_INFO,
+        JSON.stringify(userInfo)
+      );
+    }
+  },
 };
 
 // API utilities
@@ -86,9 +97,13 @@ const APIUtils = {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
+        const error = new Error(
           data.message || `HTTP ${response.status}: ${response.statusText}`
         );
+        error.status = response.status;
+        error.statusText = response.statusText;
+        error.response = data;
+        throw error;
       }
 
       return data;

@@ -104,6 +104,19 @@ package_lambda() {
     
     local temp_dir="lambda-package-$$"
     
+    # Cleanup function
+    cleanup_lambda_package() {
+        if [[ -d "$temp_dir" ]]; then
+            rm -rf "$temp_dir"
+        fi
+        if [[ -f "lambda-deployment.zip" ]]; then
+            rm -f "lambda-deployment.zip"
+        fi
+    }
+    
+    # Set trap for cleanup
+    trap cleanup_lambda_package EXIT
+    
     # Create temporary directory
     mkdir -p "$temp_dir"
     
@@ -142,9 +155,6 @@ EOF
     # Get package size
     local package_size
     package_size=$(du -h lambda-deployment.zip | cut -f1)
-    
-    # Clean up temporary directory
-    rm -rf "$temp_dir"
     
     log_success "Lambda package created: lambda-deployment.zip ($package_size)"
 }
