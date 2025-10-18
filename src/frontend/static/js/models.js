@@ -67,16 +67,6 @@ class User {
     return true; // All users are owners with full permissions
   }
 
-  // All users can access all resources
-  canAccess(resourceType, action = "read") {
-    return true; // All users are owners with full access
-  }
-
-  // All users are property owners with full permissions
-  hasPermission(permission) {
-    return true; // All users are owners with full permissions
-  }
-
   // All users have owner-level permissions
   getPermissionLevel() {
     return 80; // Owner permission level
@@ -117,13 +107,14 @@ class User {
   }
 }
 
-// Address model
+// Address model - simplified for consistent API format
 class Address {
   constructor(data = {}) {
-    this.streetAddress = data.street || data.streetAddress || "";
+    this.streetAddress = data.streetAddress || "";
     this.city = data.city || "";
+    this.county = data.county || "";
     this.state = data.state || "";
-    this.zipCode = data.zipCode || data.zip || "";
+    this.zipCode = data.zipCode || "";
     this.country = data.country || "US";
   }
 
@@ -145,8 +136,9 @@ class Address {
   // Convert to API format
   toApiFormat() {
     return {
-      street: this.streetAddress,
+      streetAddress: this.streetAddress,
       city: this.city,
+      county: this.county,
       state: this.state,
       zipCode: this.zipCode,
       country: this.country,
@@ -158,38 +150,31 @@ class Address {
     return new Address({
       streetAddress: formData[`${prefix}streetAddress`] || "",
       city: formData[`${prefix}city`] || "",
+      county: formData[`${prefix}county`] || "",
       state: formData[`${prefix}state`] || "",
       zipCode: formData[`${prefix}zipCode`] || "",
     });
   }
 }
 
-// Property model
+// Property model - simplified for consistent API format
 class Property {
   constructor(data = {}) {
     this.id = data.id || null;
     this.title = data.title || "";
     this.description = data.description || "";
-    // Handle both API format (property_type) and frontend format (propertyType)
-    this.propertyType = data.propertyType || data.property_type || "";
+    this.propertyType = data.propertyType || "";
     this.address = new Address(data.address || {});
+    this.rent = data.rent || 0;
     this.bedrooms = data.bedrooms || 0;
     this.bathrooms = data.bathrooms || 0;
-    this.squareFootage = data.squareFootage || null;
-    // Handle both API format (price) and frontend format (rent)
-    this.rent = data.rent || data.price || 0;
-    this.deposit = data.deposit || 0;
-    this.availableDate = data.availableDate || "";
-    this.leaseTerm = data.leaseTerm || "";
-    this.amenities = data.amenities || [];
+    this.squareFeet = data.squareFeet || null;
+    this.garageType = data.garageType || "";
+    this.garageCars = data.garageCars || 0;
+    this.status = data.status || "active";
+    this.createdAt = data.createdAt || null;
+    this.updatedAt = data.updatedAt || null;
     this.images = data.images || [];
-    this.landlordId = data.landlordId || null;
-    // Handle both API format (status === 'active') and frontend format (isActive)
-    this.isActive =
-      data.isActive !== undefined ? data.isActive : data.status === "active";
-    // Handle both API format (created_at) and frontend format (createdAt)
-    this.createdAt = data.createdAt || data.created_at || null;
-    this.updatedAt = data.updatedAt || data.updated_at || null;
   }
 
   get formattedRent() {
@@ -199,19 +184,12 @@ class Property {
     }).format(this.rent);
   }
 
-  get formattedDeposit() {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(this.deposit);
-  }
-
   get propertyTypeLabel() {
-    return DataUtils.getPropertyTypeLabel(this.propertyType);
+    return StringUtils.capitalize(this.propertyType);
   }
 
-  get leaseTermLabel() {
-    return DataUtils.formatLeaseTerm(this.leaseTerm);
+  get isActive() {
+    return this.status === "active";
   }
 
   // Validate property data
@@ -250,24 +228,44 @@ class Property {
     };
   }
 
+  // Get display address
+  getDisplayAddress() {
+    return this.address.streetAddress || this.title || "Address not available";
+  }
+
+  // Get full formatted address
+  getFullAddress() {
+    const parts = [
+      this.address.streetAddress,
+      this.address.city,
+      this.address.state,
+      this.address.zipCode,
+    ].filter((part) => part && part.trim());
+    return parts.join(", ") || this.getDisplayAddress();
+  }
+
   // Convert to API format
   toApiFormat() {
     return {
+      id: this.id,
       title: this.title,
       description: this.description,
       propertyType: this.propertyType,
       address: this.address.toApiFormat(),
+      rent: this.rent,
       bedrooms: this.bedrooms,
       bathrooms: this.bathrooms,
-      squareFootage: this.squareFootage,
-      rent: this.rent,
-      deposit: this.deposit,
-      availableDate: this.availableDate,
-      leaseTerm: this.leaseTerm,
-      amenities: this.amenities,
+      squareFeet: this.squareFeet,
+      garageType: this.garageType,
+      garageCars: this.garageCars,
+      status: this.status,
       images: this.images,
-      isActive: this.isActive,
     };
+  }
+
+  // Create from API response
+  static fromApiResponse(data) {
+    return new Property(data);
   }
 }
 
@@ -393,9 +391,280 @@ class Application {
   }
 }
 
+// Property Finance model
+class PropertyFinance {
+  constructor(data = {}) {
+    this.propertyId = data.propertyId || null;
+    this.ownershipType = data.ownershipType || null; // individual, joint, llc, corporation, partnership
+    this.ownershipStatus = data.ownershipStatus || null; // owned, financed, leased
+    this.purchaseInfo = new PurchaseInfo(data.purchaseInfo || {});
+    this.loans = (data.loans || []).map((loan) => new PropertyLoan(loan));
+    this.createdAt = data.createdAt || null;
+    this.updatedAt = data.updatedAt || null;
+  }
+
+  get ownershipTypeLabel() {
+    if (!this.ownershipType) return "Not available";
+
+    const types = {
+      individual: "Individual",
+      joint: "Joint Ownership",
+      llc: "LLC",
+      corporation: "Corporation",
+      partnership: "Partnership",
+      trust: "Trust",
+    };
+    return (
+      types[this.ownershipType] || StringUtils.capitalize(this.ownershipType)
+    );
+  }
+
+  get ownershipStatusLabel() {
+    if (!this.ownershipStatus) return "Not available";
+
+    const statuses = {
+      owned: "Owned Outright",
+      financed: "Financed",
+      leased: "Leased",
+      contract: "Contract for Deed",
+    };
+    return (
+      statuses[this.ownershipStatus] ||
+      StringUtils.capitalize(this.ownershipStatus)
+    );
+  }
+
+  get activeLoans() {
+    return this.loans.filter((loan) => loan.isActive);
+  }
+
+  get totalLoanBalance() {
+    return this.activeLoans.reduce(
+      (total, loan) => total + loan.currentBalance,
+      0
+    );
+  }
+
+  validate() {
+    const errors = [];
+
+    if (!this.ownershipType) {
+      errors.push("Ownership type is required");
+    }
+
+    if (!this.ownershipStatus) {
+      errors.push("Ownership status is required");
+    }
+
+    // Validate purchase info
+    const purchaseValidation = this.purchaseInfo.validate();
+    if (!purchaseValidation.isValid) {
+      errors.push(...purchaseValidation.errors);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  toApiFormat() {
+    return {
+      propertyId: this.propertyId,
+      ownershipType: this.ownershipType,
+      ownershipStatus: this.ownershipStatus,
+      purchaseInfo: this.purchaseInfo.toApiFormat(),
+      loans: this.loans.map((loan) => loan.toApiFormat()),
+    };
+  }
+
+  static fromApiResponse(data) {
+    return new PropertyFinance(data);
+  }
+}
+
+// Purchase Information model
+class PurchaseInfo {
+  constructor(data = {}) {
+    this.purchasePrice = data.purchasePrice || 0;
+    this.purchaseDate = data.purchaseDate || "";
+    this.builder = data.builder || "";
+    this.seller = data.seller || "";
+    this.buyerAgent = data.buyerAgent || "";
+    this.sellerAgent = data.sellerAgent || "";
+    this.titleCompany = data.titleCompany || "";
+    this.closingCosts = data.closingCosts || 0;
+    this.downPayment = data.downPayment || 0;
+  }
+
+  get formattedPurchasePrice() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.purchasePrice);
+  }
+
+  get formattedClosingCosts() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.closingCosts);
+  }
+
+  get formattedDownPayment() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.downPayment);
+  }
+
+  validate() {
+    const errors = [];
+
+    if (this.purchasePrice && this.purchasePrice <= 0) {
+      errors.push("Purchase price must be greater than 0");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  toApiFormat() {
+    return {
+      purchasePrice: this.purchasePrice,
+      purchaseDate: this.purchaseDate,
+      builder: this.builder,
+      seller: this.seller,
+      buyerAgent: this.buyerAgent,
+      sellerAgent: this.sellerAgent,
+      titleCompany: this.titleCompany,
+      closingCosts: this.closingCosts,
+      downPayment: this.downPayment,
+    };
+  }
+}
+
+// Property Loan model
+class PropertyLoan {
+  constructor(data = {}) {
+    this.id = data.id || null;
+    this.propertyId = data.propertyId || null;
+    this.lender = data.lender || "";
+    this.loanType = data.loanType || ""; // conventional, fha, va, usda, portfolio, hard-money
+    this.originalAmount = data.originalAmount || 0;
+    this.currentBalance = data.currentBalance || 0;
+    this.interestRate = data.interestRate || 0;
+    this.termYears = data.termYears || 30;
+    this.monthlyPayment = data.monthlyPayment || 0;
+    this.startDate = data.startDate || "";
+    this.maturityDate = data.maturityDate || "";
+    this.isActive = data.isActive !== undefined ? data.isActive : true;
+    this.createdAt = data.createdAt || null;
+    this.updatedAt = data.updatedAt || null;
+  }
+
+  get loanTypeLabel() {
+    const types = {
+      conventional: "Conventional",
+      fha: "FHA",
+      va: "VA",
+      usda: "USDA",
+      portfolio: "Portfolio",
+      "hard-money": "Hard Money",
+      heloc: "HELOC",
+      other: "Other",
+    };
+    return types[this.loanType] || StringUtils.capitalize(this.loanType);
+  }
+
+  get formattedOriginalAmount() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.originalAmount);
+  }
+
+  get formattedCurrentBalance() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.currentBalance);
+  }
+
+  get formattedMonthlyPayment() {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(this.monthlyPayment);
+  }
+
+  get formattedInterestRate() {
+    return `${this.interestRate.toFixed(2)}%`;
+  }
+
+  get statusLabel() {
+    return this.isActive ? "Active" : "Closed";
+  }
+
+  validate() {
+    const errors = [];
+
+    if (!this.lender?.trim()) {
+      errors.push("Lender name is required");
+    }
+
+    if (!this.loanType) {
+      errors.push("Loan type is required");
+    }
+
+    if (!this.originalAmount || this.originalAmount <= 0) {
+      errors.push("Original loan amount must be greater than 0");
+    }
+
+    if (this.currentBalance < 0) {
+      errors.push("Current balance cannot be negative");
+    }
+
+    if (!this.interestRate || this.interestRate <= 0) {
+      errors.push("Interest rate must be greater than 0");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  toApiFormat() {
+    return {
+      id: this.id,
+      propertyId: this.propertyId,
+      lender: this.lender,
+      loanType: this.loanType,
+      originalAmount: this.originalAmount,
+      currentBalance: this.currentBalance,
+      interestRate: this.interestRate,
+      termYears: this.termYears,
+      monthlyPayment: this.monthlyPayment,
+      startDate: this.startDate,
+      maturityDate: this.maturityDate,
+      isActive: this.isActive,
+    };
+  }
+
+  static fromApiResponse(data) {
+    return new PropertyLoan(data);
+  }
+}
+
 // Export models for global use
 window.User = User;
 window.Address = Address;
 window.Property = Property;
 window.Tenant = Tenant;
 window.Application = Application;
+window.PropertyFinance = PropertyFinance;
+window.PurchaseInfo = PurchaseInfo;
+window.PropertyLoan = PropertyLoan;

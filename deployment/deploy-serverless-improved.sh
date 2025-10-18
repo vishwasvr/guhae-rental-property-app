@@ -104,10 +104,11 @@ package_lambda() {
     
     local temp_dir="lambda-package-$$"
     
-    # Cleanup function
+    # Cleanup function that doesn't rely on variables outside its scope
     cleanup_lambda_package() {
-        if [[ -d "$temp_dir" ]]; then
-            rm -rf "$temp_dir"
+        # Use pattern matching instead of variable
+        if [[ -d lambda-package-* ]]; then
+            rm -rf lambda-package-*
         fi
         if [[ -f "lambda-deployment.zip" ]]; then
             rm -f "lambda-deployment.zip"

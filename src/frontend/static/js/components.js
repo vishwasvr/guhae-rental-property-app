@@ -389,6 +389,7 @@ const AddressUtils = {
     const {
       includeState = true,
       includeZip = true,
+      includeCounty = false,
       separator = ", ",
       multiline = false,
     } = options;
@@ -402,6 +403,10 @@ const AddressUtils = {
     let cityStateZip = [];
     if (address.city) {
       cityStateZip.push(address.city);
+    }
+
+    if (includeCounty && address.county) {
+      cityStateZip.push(`${address.county} County`);
     }
 
     if (includeState && address.state) {
@@ -424,6 +429,7 @@ const AddressUtils = {
     return {
       streetAddress: formData[`${prefix}streetAddress`] || "",
       city: formData[`${prefix}city`] || "",
+      county: formData[`${prefix}county`] || "",
       state: formData[`${prefix}state`] || "",
       zipCode: formData[`${prefix}zipCode`] || "",
     };

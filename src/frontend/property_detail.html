@@ -346,15 +346,141 @@
             </div>
 
             <div id="tab-finances" class="tab-content" style="display: none">
-              <h4><i class="fas fa-chart-line me-2"></i>Financial Overview</h4>
-              <div class="loading-placeholder">
-                <div class="text-center">
-                  <i class="fas fa-chart-line fa-3x mb-3 text-muted"></i>
-                  <h5>Financial Dashboard</h5>
-                  <p class="text-muted">
-                    Coming Soon - Complete financial overview and reporting
-                  </p>
+              <h4><i class="fas fa-chart-line me-2"></i>Property Finance</h4>
+
+              <!-- Finance Overview Cards -->
+              <div class="row mb-4">
+                <div class="col-md-4">
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                      <i class="fas fa-building fa-2x text-primary mb-2"></i>
+                      <h6 class="card-title">Ownership</h6>
+                      <p class="card-text" id="ownershipType">Loading...</p>
+                    </div>
+                  </div>
                 </div>
+                <div class="col-md-4">
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                      <i
+                        class="fas fa-hand-holding-usd fa-2x text-success mb-2"
+                      ></i>
+                      <h6 class="card-title">Status</h6>
+                      <p class="card-text" id="ownershipStatus">Loading...</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                      <i class="fas fa-calculator fa-2x text-info mb-2"></i>
+                      <h6 class="card-title">Total Loans</h6>
+                      <p class="card-text" id="totalLoanBalance">Loading...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Purchase Information Section -->
+              <div class="card mb-4">
+                <div
+                  class="card-header d-flex justify-content-between align-items-center"
+                >
+                  <h5 class="mb-0">
+                    <i class="fas fa-shopping-cart me-2"></i>Purchase
+                    Information
+                  </h5>
+                  <button
+                    class="btn btn-outline-primary btn-sm"
+                    id="editPurchaseBtn"
+                  >
+                    <i class="fas fa-edit me-1"></i>Edit
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label text-muted"
+                          >Purchase Price</label
+                        >
+                        <div id="purchasePrice" class="fw-bold">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted"
+                          >Purchase Date</label
+                        >
+                        <div id="purchaseDate">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted">Builder</label>
+                        <div id="builder">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted">Seller</label>
+                        <div id="seller">-</div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label text-muted">Buyer Agent</label>
+                        <div id="buyerAgent">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted"
+                          >Seller Agent</label
+                        >
+                        <div id="sellerAgent">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted"
+                          >Title Company</label
+                        >
+                        <div id="titleCompany">-</div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label text-muted"
+                          >Closing Costs</label
+                        >
+                        <div id="closingCosts">-</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Loans Section -->
+              <div class="card">
+                <div
+                  class="card-header d-flex justify-content-between align-items-center"
+                >
+                  <h5 class="mb-0">
+                    <i class="fas fa-university me-2"></i>Loans
+                  </h5>
+                  <button class="btn btn-primary btn-sm" id="addLoanBtn">
+                    <i class="fas fa-plus me-1"></i>Add Loan
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div id="loansContainer">
+                    <div class="text-center text-muted py-4">
+                      <i class="fas fa-university fa-2x mb-3"></i>
+                      <p>No loans added yet</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Finance Loading State -->
+              <div
+                id="financeLoadingState"
+                class="text-center py-5"
+                style="display: none"
+              >
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading financial data...</p>
               </div>
             </div>
 
@@ -404,12 +530,611 @@
       </div>
     </div>
 
+    <!-- Edit Property Modal -->
+    <div
+      class="modal fade"
+      id="editPropertyModal"
+      tabindex="-1"
+      aria-labelledby="editPropertyModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editPropertyModalLabel">
+              <i class="fas fa-edit me-2"></i>Edit Property
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="editPropertyForm">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editTitle" class="form-label"
+                    >Property Title</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editTitle"
+                    required
+                  />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editPropertyType" class="form-label"
+                    >Property Type</label
+                  >
+                  <select class="form-select" id="editPropertyType" required>
+                    <option value="">Select Property Type</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="house">House</option>
+                    <option value="townhouse">Townhouse</option>
+                    <option value="condo">Condo</option>
+                    <option value="studio">Studio</option>
+                    <option value="duplex">Duplex</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="editDescription" class="form-label"
+                  >Description</label
+                >
+                <textarea
+                  class="form-control"
+                  id="editDescription"
+                  rows="3"
+                ></textarea>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="editRent" class="form-label"
+                    >Monthly Rent ($)</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editRent"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="editBedrooms" class="form-label">Bedrooms</label>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editBedrooms"
+                    min="0"
+                    max="10"
+                  />
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="editBathrooms" class="form-label"
+                    >Bathrooms</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editBathrooms"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                  />
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editSquareFeet" class="form-label"
+                    >Square Feet</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editSquareFeet"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <!-- Address Information -->
+              <div class="mb-3">
+                <h6 class="text-muted mb-3">Address Information</h6>
+                <div
+                  class="alert alert-info py-2 px-3 mb-3"
+                  id="addressNote"
+                  style="display: none; font-size: 0.875em"
+                >
+                  <i class="fas fa-info-circle me-2"></i>
+                  <strong>Note:</strong> Please fill in the address details to
+                  update the property location information.
+                </div>
+                <div class="mb-3">
+                  <label for="editStreetAddress" class="form-label"
+                    >Street Address</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editStreetAddress"
+                    placeholder="123 Main Street"
+                  />
+                </div>
+
+                <div class="row">
+                  <div class="col-md-3">
+                    <label for="editCity" class="form-label">City</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editCity"
+                      placeholder="City"
+                    />
+                  </div>
+
+                  <div class="col-md-3">
+                    <label for="editCounty" class="form-label">County</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editCounty"
+                      placeholder="County"
+                    />
+                  </div>
+
+                  <div class="col-md-3">
+                    <label for="editState" class="form-label">State</label>
+                    <select class="form-select" id="editState">
+                      <option value="">Select State</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-3">
+                    <label for="editZipCode" class="form-label">Zip Code</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editZipCode"
+                      placeholder="12345"
+                      pattern="[0-9]{5}(-[0-9]{4})?"
+                      title="Please enter a valid zip code (12345 or 12345-6789)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Garage Information -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editGarageType" class="form-label"
+                    >Garage Type</label
+                  >
+                  <select class="form-select" id="editGarageType">
+                    <option value="">No Garage</option>
+                    <option value="attached">Attached</option>
+                    <option value="detached">Detached</option>
+                    <option value="carport">Carport</option>
+                    <option value="covered">Covered Parking</option>
+                    <option value="underground">Underground</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editGarageCars" class="form-label"
+                    >Number of Cars</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editGarageCars"
+                    min="0"
+                    max="10"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              <i class="fas fa-times me-2"></i>Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="savePropertyBtn">
+              <i class="fas fa-save me-2"></i>Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Purchase Info Modal -->
+    <div
+      class="modal fade"
+      id="editPurchaseModal"
+      tabindex="-1"
+      aria-labelledby="editPurchaseModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editPurchaseModalLabel">
+              <i class="fas fa-shopping-cart me-2"></i>Edit Purchase Information
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="editPurchaseForm">
+              <!-- Ownership Information -->
+              <div class="mb-4">
+                <h6 class="text-muted mb-3">Ownership Details</h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editOwnershipType" class="form-label"
+                      >Ownership Type</label
+                    >
+                    <select class="form-select" id="editOwnershipType" required>
+                      <option value="">Select ownership type</option>
+                      <option value="individual">Individual</option>
+                      <option value="joint">Joint Ownership</option>
+                      <option value="llc">LLC</option>
+                      <option value="corporation">Corporation</option>
+                      <option value="partnership">Partnership</option>
+                      <option value="trust">Trust</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="editOwnershipStatus" class="form-label"
+                      >Ownership Status</label
+                    >
+                    <select
+                      class="form-select"
+                      id="editOwnershipStatus"
+                      required
+                    >
+                      <option value="">Select status</option>
+                      <option value="owned">Owned Outright</option>
+                      <option value="financed">Financed</option>
+                      <option value="leased">Leased</option>
+                      <option value="contract">Contract for Deed</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Purchase Information -->
+              <div class="mb-4">
+                <h6 class="text-muted mb-3">Purchase Details</h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editPurchasePrice" class="form-label"
+                      >Purchase Price</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="editPurchasePrice"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="editPurchaseDate" class="form-label"
+                      >Purchase Date</label
+                    >
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="editPurchaseDate"
+                    />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editDownPayment" class="form-label"
+                      >Down Payment</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="editDownPayment"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="editClosingCosts" class="form-label"
+                      >Closing Costs</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="editClosingCosts"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Parties Involved -->
+              <div class="mb-3">
+                <h6 class="text-muted mb-3">Parties Involved</h6>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editBuilder" class="form-label">Builder</label>
+                    <input type="text" class="form-control" id="editBuilder" />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="editSeller" class="form-label">Seller</label>
+                    <input type="text" class="form-control" id="editSeller" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editBuyerAgent" class="form-label"
+                      >Buyer Agent</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editBuyerAgent"
+                    />
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="editSellerAgent" class="form-label"
+                      >Seller Agent</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editSellerAgent"
+                    />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="editTitleCompany" class="form-label"
+                      >Title Company</label
+                    >
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="editTitleCompany"
+                    />
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              <i class="fas fa-times me-2"></i>Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="savePurchaseBtn">
+              <i class="fas fa-save me-2"></i>Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Loan Modal -->
+    <div
+      class="modal fade"
+      id="editLoanModal"
+      tabindex="-1"
+      aria-labelledby="editLoanModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editLoanModalLabel">
+              <i class="fas fa-university me-2"></i
+              ><span id="loanModalTitle">Add Loan</span>
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="editLoanForm">
+              <input type="hidden" id="editLoanId" />
+
+              <!-- Loan Basic Information -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editLender" class="form-label">Lender *</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="editLender"
+                    required
+                  />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editLoanType" class="form-label"
+                    >Loan Type *</label
+                  >
+                  <select class="form-select" id="editLoanType" required>
+                    <option value="">Select loan type</option>
+                    <option value="conventional">Conventional</option>
+                    <option value="fha">FHA</option>
+                    <option value="va">VA</option>
+                    <option value="usda">USDA</option>
+                    <option value="portfolio">Portfolio</option>
+                    <option value="hard-money">Hard Money</option>
+                    <option value="heloc">HELOC</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Loan Amounts -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editOriginalAmount" class="form-label"
+                    >Original Amount *</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editOriginalAmount"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                  />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editCurrentBalance" class="form-label"
+                    >Current Balance *</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editCurrentBalance"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <!-- Loan Terms -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editInterestRate" class="form-label"
+                    >Interest Rate (%) *</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editInterestRate"
+                    min="0"
+                    max="100"
+                    step="0.001"
+                    required
+                    placeholder="0.000"
+                  />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editTermYears" class="form-label"
+                    >Term (Years)</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editTermYears"
+                    min="1"
+                    max="50"
+                    placeholder="30"
+                  />
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editMonthlyPayment" class="form-label"
+                    >Monthly Payment</label
+                  >
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="editMonthlyPayment"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <!-- Loan Dates -->
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="editStartDate" class="form-label"
+                    >Start Date</label
+                  >
+                  <input type="date" class="form-control" id="editStartDate" />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="editMaturityDate" class="form-label"
+                    >Maturity Date</label
+                  >
+                  <input
+                    type="date"
+                    class="form-control"
+                    id="editMaturityDate"
+                  />
+                </div>
+              </div>
+
+              <!-- Loan Status -->
+              <div class="mb-3">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="editIsActive"
+                    checked
+                  />
+                  <label class="form-check-label" for="editIsActive">
+                    Loan is active
+                  </label>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              <i class="fas fa-times me-2"></i>Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="saveLoanBtn">
+              <i class="fas fa-save me-2"></i>Save Loan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="static/js/data.js"></script>
     <script src="static/js/utils.js"></script>
     <script src="static/js/components.js"></script>
     <script src="static/js/models.js"></script>
+    <script src="static/js/services.js"></script>
     <script src="static/js/property_detail.js"></script>
   </body>
 </html>

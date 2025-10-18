@@ -291,6 +291,12 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-WebUrl"
 
+  CloudFrontDistributionId:
+    Description: "CloudFront Distribution ID for cache invalidation"
+    Value: !Ref RentalPropertyWebDistribution
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDistributionId"
+
   RentalPropertyAssetsBucketName:
     Description: "S3 bucket for rental property assets and static files"
     Value: !Ref RentalPropertyAssetsBucket

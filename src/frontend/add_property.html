@@ -166,7 +166,7 @@
               </div>
 
               <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label for="city" class="form-label">City *</label>
                   <input
                     type="text"
@@ -178,14 +178,25 @@
                   />
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
+                  <label for="county" class="form-label">County</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="county"
+                    name="county"
+                    placeholder="County"
+                  />
+                </div>
+
+                <div class="col-md-3">
                   <label for="state" class="form-label">State *</label>
                   <select class="form-select" id="state" name="state" required>
                     <option value="">Select State</option>
                   </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label for="zipCode" class="form-label">Zip Code *</label>
                   <input
                     type="text"
@@ -275,6 +286,7 @@
     <script src="static/js/utils.js"></script>
     <script src="static/js/components.js"></script>
     <script src="static/js/models.js"></script>
+    <script src="static/js/services.js"></script>
     <script src="static/js/auth.js"></script>
     <script src="static/js/add_property.js"></script>
   </body>

@@ -31,6 +31,11 @@ const AuthUtils = {
     return token ? { Authorization: `Bearer ${token}` } : {};
   },
 
+  // Get access token
+  getToken() {
+    return localStorage.getItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+  },
+
   // Clear all authentication data
   logout() {
     localStorage.removeItem(CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
@@ -137,6 +142,11 @@ const APIUtils = {
   delete(endpoint, options = {}) {
     return this.request(endpoint, { method: "DELETE", ...options });
   },
+
+  // Alias for backward compatibility
+  makeRequest(endpoint, options = {}) {
+    return this.request(endpoint, options);
+  },
 };
 
 // UI utilities
@@ -232,6 +242,30 @@ const FormUtils = {
   },
 };
 
+// String formatting utilities
+const StringUtils = {
+  // Capitalize first letter of each word
+  capitalize(str) {
+    if (!str) return "";
+    return str.replace(/\b\w/g, (l) => l.toUpperCase());
+  },
+
+  // Capitalize first letter only
+  capitalizeFirst(str) {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  },
+
+  // Convert to title case (proper case)
+  toTitleCase(str) {
+    if (!str) return "";
+    return str.replace(
+      /\w\S*/g,
+      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+  },
+};
+
 // Page protection - redirect to login if not authenticated
 function requireAuth() {
   if (!AuthUtils.isAuthenticated()) {
@@ -252,4 +286,5 @@ window.AuthUtils = AuthUtils;
 window.APIUtils = APIUtils;
 window.UIUtils = UIUtils;
 window.FormUtils = FormUtils;
+window.StringUtils = StringUtils;
 window.requireAuth = requireAuth;

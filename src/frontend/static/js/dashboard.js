@@ -118,17 +118,17 @@ const DashboardUtils = {
   // Load and display properties list
   async loadProperties() {
     try {
-      const data = await APIUtils.get("/properties");
+      const properties = await PropertyService.getAllProperties();
       const container = document.getElementById("propertiesList");
 
       // Store properties data globally for property detail modal
       if (!window.dashboardData) {
         window.dashboardData = {};
       }
-      window.dashboardData.properties = data.properties || [];
+      window.dashboardData.properties = properties;
 
-      if (data.properties && data.properties.length > 0) {
-        container.innerHTML = this.renderPropertiesList(data.properties);
+      if (properties && properties.length > 0) {
+        container.innerHTML = this.renderPropertiesList(properties);
       } else {
         container.innerHTML = this.renderEmptyPropertiesState();
       }
@@ -200,7 +200,7 @@ const DashboardUtils = {
           <div class="d-flex align-items-center">
             <div class="flex-grow-1">
               <p class="mb-1">${propertyModel.title || "Untitled Property"}</p>
-              <small class="text-muted">${propertyModel.address.format()}</small>
+              <small class="text-muted">${propertyModel.getFullAddress()}</small>
               <div class="mt-1">
                 <span class="badge bg-info">${
                   propertyModel.propertyTypeLabel
@@ -337,7 +337,7 @@ const DashboardActions = {
           </div>
           <div class="row mb-3">
             <div class="col-sm-4"><strong>Address:</strong></div>
-            <div class="col-sm-8">${propertyModel.address.format()}</div>
+            <div class="col-sm-8">${propertyModel.getFullAddress()}</div>
           </div>
           <div class="row mb-3">
             <div class="col-sm-4"><strong>Monthly Rent:</strong></div>
