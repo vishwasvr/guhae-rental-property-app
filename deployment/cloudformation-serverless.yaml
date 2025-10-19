@@ -1,7 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: SERVERLESS Guhae rental property app - Lambda-based for ultra-low costs
 
-# No parameters needed for this template
+Parameters:
+  CustomDomain:
+    Type: String
+    Description: "Custom domain name for the application (e.g., app.yourdomain.com)"
+    Default: ""
+
+  SSLCertificateArn:
+    Type: String
+    Description: "ARN of the SSL certificate from AWS Certificate Manager (us-east-1 region)"
+    Default: ""
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref CustomDomain, ""]]
+  HasSSLCertificate: !Not [!Equals [!Ref SSLCertificateArn, ""]]
 
 Resources:
   # S3 bucket for static files and rental property assets
@@ -246,6 +259,16 @@ Resources:
     Properties:
       DistributionConfig:
         Comment: Guhae Rental Property Management App CDN
+        Aliases: !If
+          - HasCustomDomain
+          - [!Ref CustomDomain, !Sub "www.${CustomDomain}"]
+          - !Ref "AWS::NoValue"
+        ViewerCertificate: !If
+          - HasSSLCertificate
+          - AcmCertificateArn: !Ref SSLCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https

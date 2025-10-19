@@ -1,8 +1,0 @@
-{
-    "deployment_time": "2025-10-18T22:51:00Z",
-    "environment": "dev",
-    "stack_name": "guhae-serverless",
-    "region": "us-east-1",
-    "git_commit": "d243f6bb476189e2e357806140b836f2f3c20e14",
-    "package_size": "~3KB"
-}
