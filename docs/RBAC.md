@@ -1,53 +1,73 @@
-# Role-Based Access Control (RBAC) System
+# Multi-Tenant Access Control System
 
 ## Overview
 
-The Guhae Rental Property Application implements a comprehensive role-based access control system to ensure secure and appropriate access to features and data based on user roles.
+The Guhae Rental Property Application implements a multi-tenant architecture with user-based data isolation. Each user has complete access to their own properties and finance data, with strict separation between users.
 
-## User Roles
+## Security Model
 
-### 1. **System Administrator** (`admin`)
+### 🔐 User-Based Isolation
 
-- **Level**: 100 (Highest)
-- **Description**: Full system access and management
-- **Permissions**: Complete system administration and oversight
+- **Authentication**: JWT token-based user authentication
+- **Data Segregation**: Each user can only access their own properties and data
+- **Owner-based Authorization**: All data queries filtered by authenticated user's `owner_id`
+- **Zero Cross-Tenant Access**: Impossible to access other users' data
 
-**Key Features**:
+## Current Access Structure
 
-- ✅ Manage all users and properties
-- ✅ Access system configuration
-- ✅ View all reports and audit logs
-- ✅ Manage system settings
-- ✅ Override any restrictions
+### **Property Owner** (Default User Role)
 
----
-
-### 2. **Property Owner** (`owner`)
-
-- **Level**: 80
-- **Description**: Property owner with full management rights
-- **Permissions**: Full property management, tenant management, financial control
+- **Description**: Individual user with complete control over their rental properties
+- **Authentication**: Email/password with JWT tokens
+- **Data Access**: Full CRUD access to owned properties and finance data
 
 **Key Features**:
 
 - ✅ Create, edit, and delete own properties
-- ✅ Manage tenants and lease agreements
-- ✅ Collect rent and manage finances
-- ✅ Handle maintenance requests
-- ✅ Review and approve rental applications
-- ✅ Generate financial reports
+- ✅ Manage property finance information (ownership, purchase details)
+- ✅ Add, edit, and remove property loans
+- ✅ Set ownership types (Individual, Joint, LLC, Corporation)
+- ✅ Track ownership status (Owned, Financed, Rented)
+- ✅ Manage purchase information and transaction details
+- ✅ Update profile and account settings
+- ✅ Complete property portfolio management
 
----
+## Data Access Control
 
-### 3. **Property Manager** (`property_manager`)
+### 🛡️ Authorization Flow
 
-- **Level**: 70
-- **Description**: Manages properties on behalf of owners
-- **Permissions**: Property management, tenant relations, maintenance coordination
+```mermaid
+graph LR
+    Request[📱 API Request] --> JWT[🔑 JWT Validation]
+    JWT --> UserID[👤 Extract User ID]
+    UserID --> Filter[🔍 owner_id Filter]
+    Filter --> Data[💾 User's Data Only]
+    
+    JWT -.-> Reject[❌ Invalid Token]
+    Filter -.-> Empty[📭 No Data Found]
+```
 
-**Key Features**:
+### 🔍 Database Query Pattern
 
-- ✅ Manage assigned properties
+All protected endpoints follow this pattern:
+
+```python
+# Extract user from JWT token
+user_id = get_authenticated_user_id(event)
+
+# Query with owner_id filter
+response = dynamodb.query(
+    IndexName='owner_id-index',
+    KeyConditionExpression=Key('owner_id').eq(user_id)
+)
+```
+
+### 🚫 Access Restrictions
+
+- ❌ **Cross-user data access**: Users cannot see other users' properties
+- ❌ **Administrative privileges**: No elevated system access
+- ❌ **Global data queries**: All queries scoped to authenticated user
+- ❌ **Data modification**: Can only modify owned resources
 - ✅ Handle tenant applications and relations
 - ✅ Coordinate maintenance requests
 - ✅ Collect rent payments

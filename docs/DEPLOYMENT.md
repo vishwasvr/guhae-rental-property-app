@@ -16,12 +16,14 @@ Complete guide for deploying the Guhae rental property management application wi
 ## Environment Strategy
 
 ### 🧪 Development Environment (`guhae-serverless`)
+
 - **Purpose**: Testing and development
 - **URL**: AWS-generated CloudFront domain
 - **Database**: Separate DynamoDB table for dev data
 - **Deployment**: Quick iterations and testing
 
 ### 🚀 Production Environment (`guhae-prod`)
+
 - **Purpose**: Live application for end users
 - **URL**: Custom domain (www.guhae.com)
 - **SSL**: AWS Certificate Manager with DNS validation

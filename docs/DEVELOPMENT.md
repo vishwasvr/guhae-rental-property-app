@@ -34,6 +34,8 @@ AWS_REGION=us-east-1
 DYNAMODB_TABLE=guhae-serverless-rental-properties
 S3_BUCKET=guhae-serverless-assets-YOUR-ACCOUNT-ID
 LOCAL_DEVELOPMENT=true
+JWT_SECRET_KEY=your-local-development-secret-key
+DEBUG=true
 EOF
 ```
 
@@ -45,11 +47,16 @@ wget https://s3.us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar
 tar -xzf dynamodb_local_latest.tar.gz
 java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
 
-# Create local table
+# Create local table with GSI for multi-tenant support
 aws dynamodb create-table \
   --table-name guhae-serverless-rental-properties \
-  --attribute-definitions AttributeName=property_id,AttributeType=S \
+  --attribute-definitions \
+    AttributeName=property_id,AttributeType=S \
+    AttributeName=owner_id,AttributeType=S \
+    AttributeName=created_at,AttributeType=S \
   --key-schema AttributeName=property_id,KeyType=HASH \
+  --global-secondary-indexes \
+    'IndexName=owner_id-index,KeySchema=[{AttributeName=owner_id,KeyType=HASH},{AttributeName=created_at,KeyType=RANGE}],Projection={ProjectionType=ALL},BillingMode=PAY_PER_REQUEST' \
   --billing-mode PAY_PER_REQUEST \
   --endpoint-url http://localhost:8000
 ```

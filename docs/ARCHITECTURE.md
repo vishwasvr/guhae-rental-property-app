@@ -192,12 +192,14 @@ graph TB
 ### 🏗️ Multi-Environment Strategy
 
 #### Development Environment (`guhae-serverless`)
+
 - **Purpose**: Testing and development
 - **URL**: AWS-generated CloudFront domain
 - **Database**: Separate DynamoDB table for dev data
 - **Isolation**: Complete infrastructure separation from production
 
 #### Production Environment (`guhae-prod`)
+
 - **Purpose**: Live application for end users
 - **URL**: Custom domain (www.guhae.com)
 - **SSL**: AWS Certificate Manager with DNS validation
@@ -207,13 +209,14 @@ graph TB
 ### 🔄 Deployment Strategy
 
 #### Infrastructure Separation
+
 ```yaml
 # Development Stack Resources
 guhae-serverless-assets-{AccountId}      # S3 Bucket
 guhae-serverless-rental-properties       # DynamoDB Table
 guhae-serverless-lambda-execution-role   # IAM Role
 
-# Production Stack Resources  
+# Production Stack Resources
 guhae-prod-assets-{AccountId}            # S3 Bucket
 guhae-prod-rental-properties             # DynamoDB Table
 guhae-prod-lambda-execution-role         # IAM Role

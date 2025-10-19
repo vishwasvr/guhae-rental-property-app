@@ -56,10 +56,54 @@ Our comprehensive policy (`guhae-deployment-policy.json`) includes:
 - **Lambda Operations**: Function creation, updates, and configuration
 - **API Gateway Operations**: REST API management and deployment
 - **CloudFormation Operations**: Stack management for infrastructure
-- **CloudFront Operations**: CDN distribution management
+- **CloudFront Operations**: CDN distribution management with custom domain support
 - **IAM Operations**: Role management for Lambda execution
+- **ACM Operations**: SSL certificate management for custom domains
 
 **All permissions are scoped to resources matching `guhae-*` pattern for maximum security.**
+
+## Multi-Tenant Application Security
+
+### 🔐 Authentication & Authorization
+
+#### JWT Token-Based Authentication
+- **User Registration/Login**: Secure password hashing with bcrypt
+- **JWT Tokens**: Access and refresh token system
+- **Token Validation**: Every protected API request validates JWT
+- **Session Management**: Secure token storage and expiration
+
+#### Data Isolation
+- **Owner-based segregation**: All data queries filtered by `owner_id`
+- **GSI Implementation**: `owner_id-index` for efficient multi-tenant queries
+- **Authorization checks**: Every request verifies resource ownership
+- **Cross-tenant protection**: Impossible to access other users' data
+
+#### Security Architecture
+```mermaid
+graph LR
+    User[👤 User] --> Login[🔑 Login/Register]
+    Login --> JWT[🎫 JWT Token]
+    JWT --> API[📡 API Request]
+    API --> Validate[✅ Token Validation]
+    Validate --> Authorize[🛡️ Ownership Check]
+    Authorize --> Data[💾 User's Data Only]
+```
+
+### 🛡️ Security Layers
+
+1. **Transport Security**: HTTPS/TLS encryption for all communication
+2. **Authentication**: JWT-based user identity verification
+3. **Authorization**: Resource-level ownership validation
+4. **Data Encryption**: DynamoDB encryption at rest
+5. **Network Security**: AWS VPC and security group isolation
+6. **Access Control**: IAM roles with least privilege principles
+
+### 🔍 Security Monitoring
+
+- **CloudWatch Logs**: All authentication and authorization events
+- **Failed Login Tracking**: Monitoring for brute force attempts
+- **API Access Logs**: Complete audit trail of all API requests
+- **Error Tracking**: Security-related errors and anomalies
 
 ## Security Benefits
 
