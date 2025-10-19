@@ -2,11 +2,29 @@
 
 ## Overview
 
-Complete API documentation for the Guhae rental property management system.
+Complete API documentation for the Guhae rental property management system with multi-tenant architecture, JWT-based authentication, and comprehensive finance management.
 
 ## Base URL
 
-**Production**: `https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod`
+**Development**: AWS-generated CloudFront domain (guhae-serverless stack)
+**Production**: `https://www.guhae.com` (guhae-prod stack)
+
+## Authentication
+
+### 🔐 JWT Token Authentication
+
+All protected endpoints require a valid JWT token in the Authorization header:
+
+```http
+Authorization: Bearer <jwt_token>
+```
+
+### Authentication Flow
+
+1. **Login/Register** → Receive JWT token
+2. **Store token** in localStorage/sessionStorage  
+3. **Include token** in subsequent API requests
+4. **Token validation** ensures multi-tenant data isolation
 
 ## API Endpoints
 
@@ -23,7 +41,7 @@ GET /api/health
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-10-17T06:09:26.312203Z",
+  "timestamp": "2025-10-19T18:00:00.000Z",
   "version": "1.0.0",
   "services": {
     "database": "healthy",
@@ -32,33 +50,90 @@ GET /api/health
 }
 ```
 
-#### Welcome/Info
+### 🔑 Authentication Endpoints
+
+#### User Registration
 
 ```http
-GET /
+POST /auth/register
+```
+
+**Request Body:**
+
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe", 
+  "email": "john@example.com",
+  "password": "securepassword",
+  "phone": "+1234567890",
+  "dateOfBirth": "1990-01-01",
+  "streetAddress": "123 Main St",
+  "city": "Anytown",
+  "state": "CA",
+  "zipCode": "12345",
+  "company": "Acme Corp"
+}
 ```
 
 **Response:**
 
 ```json
 {
-  "message": "Welcome to Guhae Rental Property Management API",
-  "version": "1.0.0",
-  "endpoints": {
-    "dashboard": "/api/dashboard",
-    "properties": "/api/properties",
-    "health": "/api/health"
+  "message": "User registered successfully",
+  "tokens": {
+    "access_token": "jwt_access_token",
+    "refresh_token": "jwt_refresh_token"
   },
-  "documentation": "https://github.com/vishwasvr/guhae-rental-property-app"
+  "user": {
+    "user_id": "uuid",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe"
+  }
+}
+```
+
+#### User Login
+
+```http
+POST /auth/login
+```
+
+**Request Body:**
+
+```json
+{
+  "username": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Login successful",
+  "tokens": {
+    "access_token": "jwt_access_token", 
+    "refresh_token": "jwt_refresh_token"
+  },
+  "user": {
+    "user_id": "uuid",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe"
+  }
 }
 ```
 
 ### 🏠 Properties Management
 
-#### Get All Properties
+#### Get All Properties (Protected)
 
 ```http
 GET /api/properties
+Authorization: Bearer <jwt_token>
 ```
 
 **Response:**
@@ -68,28 +143,64 @@ GET /api/properties
   "properties": [
     {
       "property_id": "uuid",
+      "owner_id": "user_uuid",
       "title": "2BR Apartment Downtown",
       "address": "123 Main St",
       "rent": 1200,
-      "status": "available"
+      "status": "available",
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "description": "Beautiful apartment",
+      "created_at": "2024-01-01T00:00:00Z"
     }
   ]
 }
 ```
 
-#### Add New Property
+#### Get Single Property (Protected)
+
+```http
+GET /api/properties/{property_id}
+Authorization: Bearer <jwt_token>
+```
+
+**Response:**
+
+```json
+{
+  "property_id": "uuid",
+  "owner_id": "user_uuid",
+  "title": "2BR Apartment Downtown",
+  "address": "123 Main St",
+  "rent": 1200,
+  "status": "available",
+  "bedrooms": 2,
+  "bathrooms": 1,
+  "description": "Beautiful apartment",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+#### Add New Property (Protected)
 
 ```http
 POST /api/properties
+Authorization: Bearer <jwt_token>
 Content-Type: application/json
+```
 
+**Request Body:**
+
+```json
 {
-  "title": "Property Title",
-  "address": "Full Address",
-  "rent": 1200,
-  "description": "Property description",
-  "bedrooms": 2,
-  "bathrooms": 1
+  "title": "3BR House Suburbia",
+  "address": "456 Oak Street",
+  "rent": 1800,
+  "bedrooms": 3,
+  "bathrooms": 2,
+  "description": "Spacious family home",
+  "status": "available"
 }
 ```
 
@@ -98,41 +209,37 @@ Content-Type: application/json
 ```json
 {
   "message": "Property added successfully",
-  "property_id": "uuid"
+  "property_id": "new_uuid",
+  "property": {
+    "property_id": "new_uuid",
+    "owner_id": "user_uuid",
+    "title": "3BR House Suburbia",
+    "address": "456 Oak Street",
+    "rent": 1800,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "description": "Spacious family home",
+    "status": "available",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
 }
 ```
 
-#### Get Property Details
-
-```http
-GET /api/properties/{property_id}
-```
-
-**Response:**
-
-```json
-{
-  "property_id": "uuid",
-  "title": "Property Title",
-  "address": "Full Address",
-  "rent": 1200,
-  "description": "Property description",
-  "bedrooms": 2,
-  "bathrooms": 1,
-  "status": "available",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
-
-#### Update Property
+#### Update Property (Protected)
 
 ```http
 PUT /api/properties/{property_id}
+Authorization: Bearer <jwt_token>
 Content-Type: application/json
+```
 
+**Request Body:**
+
+```json
 {
-  "title": "Updated Title",
-  "rent": 1300
+  "title": "Updated Property Title",
+  "rent": 1900,
+  "status": "rented"
 }
 ```
 
@@ -140,14 +247,23 @@ Content-Type: application/json
 
 ```json
 {
-  "message": "Property updated successfully"
+  "message": "Property updated successfully",
+  "property": {
+    "property_id": "uuid",
+    "owner_id": "user_uuid",
+    "title": "Updated Property Title",
+    "rent": 1900,
+    "status": "rented",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
 }
 ```
 
-#### Delete Property
+#### Delete Property (Protected)
 
 ```http
 DELETE /api/properties/{property_id}
+Authorization: Bearer <jwt_token>
 ```
 
 **Response:**
@@ -158,243 +274,409 @@ DELETE /api/properties/{property_id}
 }
 ```
 
-### 📊 Dashboard & Analytics
+### 💰 Finance Management
 
-#### Get Dashboard Data
+#### Get Property Finance Data (Protected)
 
 ```http
-GET /api/dashboard
+GET /api/properties/{property_id}/finance
+Authorization: Bearer <jwt_token>
 ```
 
 **Response:**
 
 ```json
 {
-  "total_properties": 10,
-  "active_properties": 8,
-  "total_users": 5,
-  "total_leases": 6,
-  "monthly_revenue": 9600,
-  "occupancy_rate": 80.0
+  "property_id": "uuid",
+  "finance": {
+    "ownership_type": "Individual",
+    "ownership_status": "Financed",
+    "purchase_info": {
+      "purchase_price": 250000,
+      "purchase_date": "2023-01-15",
+      "builder": "ABC Construction",
+      "seller": "John Doe",
+      "buyer_agent": "Jane Smith",
+      "title_company": "Secure Title Co"
+    },
+    "loans": [
+      {
+        "loan_id": "loan_uuid",
+        "financial_institution": "First National Bank",
+        "loan_type": "Conventional",
+        "loan_amount": 200000,
+        "interest_rate": 3.5,
+        "loan_term": 30,
+        "monthly_payment": 1200,
+        "start_date": "2023-01-15",
+        "status": "Active"
+      }
+    ]
+  }
 }
 ```
 
-### 🏠 Web Interface
-
-#### Home/Dashboard Page
+#### Update Property Finance Data (Protected)
 
 ```http
-GET /
+PUT /api/properties/{property_id}/finance
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 ```
 
-Returns the main dashboard HTML interface.
+**Request Body:**
 
-#### Add Property Form
+```json
+{
+  "ownership_type": "LLC",
+  "ownership_status": "Owned",
+  "purchase_info": {
+    "purchase_price": 300000,
+    "purchase_date": "2023-06-01",
+    "builder": "XYZ Builders",
+    "seller": "Previous Owner",
+    "buyer_agent": "Real Estate Pro",
+    "title_company": "Reliable Title"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Finance data updated successfully",
+  "finance": {
+    "ownership_type": "LLC",
+    "ownership_status": "Owned",
+    "purchase_info": {
+      "purchase_price": 300000,
+      "purchase_date": "2023-06-01",
+      "builder": "XYZ Builders",
+      "seller": "Previous Owner",
+      "buyer_agent": "Real Estate Pro",
+      "title_company": "Reliable Title"
+    }
+  }
+}
+```
+
+#### Add Loan to Property (Protected)
 
 ```http
-GET /add-property
+POST /api/properties/{property_id}/finance/loans
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 ```
 
-Returns the property addition form.
+**Request Body:**
 
-#### Properties List
+```json
+{
+  "financial_institution": "Second Bank",
+  "loan_type": "HELOC",
+  "loan_amount": 50000,
+  "interest_rate": 4.2,
+  "loan_term": 15,
+  "monthly_payment": 400,
+  "start_date": "2024-01-01",
+  "status": "Active"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Loan added successfully",
+  "loan": {
+    "loan_id": "new_loan_uuid",
+    "financial_institution": "Second Bank",
+    "loan_type": "HELOC",
+    "loan_amount": 50000,
+    "interest_rate": 4.2,
+    "loan_term": 15,
+    "monthly_payment": 400,
+    "start_date": "2024-01-01",
+    "status": "Active"
+  }
+}
+```
+
+#### Update Loan (Protected)
 
 ```http
-GET /properties
+PUT /api/properties/{property_id}/finance/loans/{loan_id}
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 ```
 
-Returns the properties management interface.
+**Request Body:**
 
-#### Property Detail View
+```json
+{
+  "status": "Ended",
+  "monthly_payment": 0
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Loan updated successfully",
+  "loan": {
+    "loan_id": "loan_uuid",
+    "status": "Ended",
+    "monthly_payment": 0
+  }
+}
+```
+
+#### Delete Loan (Protected)
 
 ```http
-GET /property/{property_id}
+DELETE /api/properties/{property_id}/finance/loans/{loan_id}
+Authorization: Bearer <jwt_token>
 ```
 
-Returns detailed view for a specific property.
+**Response:**
 
-## Response Codes
+```json
+{
+  "message": "Loan deleted successfully"
+}
+```
 
-| **Code** | **Status**            | **Description**               |
-| -------- | --------------------- | ----------------------------- |
-| `200`    | OK                    | Request successful            |
-| `201`    | Created               | Resource created successfully |
-| `400`    | Bad Request           | Invalid request data          |
-| `404`    | Not Found             | Resource not found            |
-| `500`    | Internal Server Error | Server error occurred         |
+### 👤 User Management
+
+#### Get User Profile (Protected)
+
+```http
+GET /api/users/profile
+Authorization: Bearer <jwt_token>
+```
+
+**Response:**
+
+```json
+{
+  "user_id": "uuid",
+  "email": "john@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "+1234567890",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+#### Update User Profile (Protected)
+
+```http
+PUT /api/users/profile
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "first_name": "Jonathan",
+  "phone": "+1987654321"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Profile updated successfully",
+  "user": {
+    "user_id": "uuid",
+    "email": "john@example.com",
+    "first_name": "Jonathan",
+    "last_name": "Doe",
+    "phone": "+1987654321",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
 
 ## Error Responses
 
-All error responses follow this format:
+### Standard Error Format
 
 ```json
 {
   "error": "Error message",
-  "message": "Detailed error description",
-  "statusCode": 400
+  "details": "Additional error details",
+  "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-### Common Error Examples
+### Common HTTP Status Codes
 
-#### Property Not Found
+- **200 OK**: Successful request
+- **201 Created**: Resource created successfully
+- **400 Bad Request**: Invalid request data
+- **401 Unauthorized**: Missing or invalid authentication
+- **403 Forbidden**: Access denied (ownership/permissions)
+- **404 Not Found**: Resource not found
+- **409 Conflict**: Resource already exists
+- **500 Internal Server Error**: Server error
+
+### Authentication Errors
+
+#### Invalid/Missing Token
 
 ```json
 {
-  "error": "Property not found",
-  "message": "Property with ID 'abc123' does not exist",
-  "statusCode": 404
+  "error": "Invalid or missing authentication token",
+  "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-#### Validation Error
+#### Expired Token
+
+```json
+{
+  "error": "Token has expired",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+### Validation Errors
+
+#### Missing Required Fields
 
 ```json
 {
   "error": "Validation failed",
-  "message": "Required field 'title' is missing",
-  "statusCode": 400
+  "details": "Missing required fields: title, address",
+  "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-#### Server Error
+#### Invalid Data Format
 
 ```json
 {
-  "error": "Internal server error",
-  "message": "Database connection failed",
-  "statusCode": 500
+  "error": "Invalid data format",
+  "details": "Email must be a valid email address",
+  "timestamp": "2024-01-01T00:00:00Z"
 }
 ```
 
-## Request/Response Examples
+### Authorization Errors
+
+#### Resource Not Owned
+
+```json
+{
+  "error": "Access denied",
+  "details": "You don't have permission to access this resource",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+## Rate Limiting
+
+- **Rate Limit**: 1000 requests per minute per user
+- **Headers**: Rate limit information included in response headers
+- **429 Too Many Requests**: Returned when rate limit exceeded
+
+## Data Validation
+
+### Property Validation
+
+- **title**: Required, max 200 characters
+- **address**: Required, max 500 characters
+- **rent**: Required, positive number
+- **bedrooms**: Required, integer ≥ 0
+- **bathrooms**: Required, number ≥ 0
+- **status**: Must be one of: "available", "rented", "maintenance"
+
+### Finance Validation
+
+- **ownership_type**: Must be one of: "Individual", "Joint", "LLC", "Corporation"
+- **ownership_status**: Must be one of: "Owned", "Financed", "Rented"
+- **purchase_price**: Positive number
+- **loan_amount**: Positive number
+- **interest_rate**: Number between 0 and 100
+- **loan_term**: Positive integer (years)
+
+### User Validation
+
+- **email**: Valid email format, unique
+- **password**: Minimum 8 characters (registration only)
+- **phone**: Valid phone number format
+- **firstName/lastName**: Required, max 100 characters each
+
+## Multi-Tenant Security
+
+### Data Isolation
+
+- All property and finance data is isolated by `owner_id`
+- JWT tokens contain user identity for authorization
+- Database queries automatically filter by authenticated user
+- No cross-tenant data access possible
+
+### Ownership Verification
+
+Every protected endpoint verifies:
+1. **Valid JWT token** with user identity
+2. **Resource ownership** (property belongs to authenticated user)
+3. **Request authorization** before data access
+
+## SDK Integration
+
+### JavaScript/Frontend
+
+```javascript
+// Authentication
+const authService = new AuthService();
+await authService.login('user@example.com', 'password');
+
+// Property management
+const propertyService = new PropertyService();
+const properties = await propertyService.getProperties();
+
+// Finance management  
+const financeService = new FinanceService();
+const financeData = await financeService.getPropertyFinance(propertyId);
+```
 
 ### cURL Examples
 
-#### List all properties
+#### Login
 
 ```bash
-curl -X GET "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties"
-```
-
-#### Add a new property
-
-```bash
-curl -X POST "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties" \
+curl -X POST https://www.guhae.com/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "title": "Modern 2BR Apartment",
-    "address": "456 Oak Street, Downtown",
-    "rent": 1500,
-    "description": "Beautiful modern apartment with city views",
-    "bedrooms": 2,
-    "bathrooms": 2
-  }'
+  -d '{"username":"user@example.com","password":"password"}'
 ```
 
-#### Get dashboard data
+#### Get Properties
 
 ```bash
-curl -X GET "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/dashboard"
+curl -X GET https://www.guhae.com/api/properties \
+  -H "Authorization: Bearer your_jwt_token"
 ```
 
-### JavaScript/Fetch Examples
-
-#### Get properties
-
-```javascript
-fetch(
-  "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties"
-)
-  .then((response) => response.json())
-  .then((data) => console.log(data));
-```
-
-#### Add property
-
-```javascript
-fetch(
-  "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api/properties",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title: "Modern 2BR Apartment",
-      address: "456 Oak Street, Downtown",
-      rent: 1500,
-      description: "Beautiful modern apartment with city views",
-      bedrooms: 2,
-      bathrooms: 2,
-    }),
-  }
-)
-  .then((response) => response.json())
-  .then((data) => console.log(data));
-```
-
-## Rate Limits
-
-- **Per IP**: 1000 requests per hour
-- **Per API Key**: 10,000 requests per hour (when authentication is implemented)
-- **Burst**: Up to 50 requests per second
-
-## Data Models
-
-### Property Model
-
-```javascript
-{
-  property_id: "string (UUID)",
-  title: "string (required)",
-  address: "string (required)",
-  rent: "number (required)",
-  description: "string (optional)",
-  bedrooms: "number (optional)",
-  bathrooms: "number (optional)",
-  status: "string (available|rented|maintenance)",
-  created_at: "ISO 8601 timestamp",
-  updated_at: "ISO 8601 timestamp"
-}
-```
-
-### Dashboard Model
-
-```javascript
-{
-  total_properties: "number",
-  active_properties: "number",
-  total_users: "number",
-  total_leases: "number",
-  monthly_revenue: "number (optional)",
-  occupancy_rate: "number (optional, percentage)"
-}
-```
-
-## Testing the API
-
-### Automated Testing
+#### Add Property
 
 ```bash
-# Test all endpoints
-cd deployment
-./test-api.sh
-
-# Test specific endpoint
-curl -X GET "https://YOUR-API-URL/api/dashboard"
+curl -X POST https://www.guhae.com/api/properties \
+  -H "Authorization: Bearer your_jwt_token" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"New Property","address":"123 Street","rent":1500,"bedrooms":2,"bathrooms":1}'
 ```
 
-### Manual Testing Tools
+## Related Documentation
 
-- **Postman**: Import the API collection
-- **curl**: Command line testing
-- **Browser**: GET endpoints and web interface
-- **Thunder Client**: VS Code extension
-
-## Support & Troubleshooting
-
-- Check [Troubleshooting Guide](TROUBLESHOOTING.md) for common issues
-- API responds with detailed error messages
-- Monitor CloudWatch logs for Lambda function errors
-- Test locally using the development server (see [Development Guide](DEVELOPMENT.md))
+- [Architecture Guide](ARCHITECTURE.md) - System architecture overview
+- [Deployment Guide](DEPLOYMENT.md) - Infrastructure deployment
+- [Security Guide](SECURITY.md) - Security implementation details
+- [Development Guide](DEVELOPMENT.md) - Local development setup

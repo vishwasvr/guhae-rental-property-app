@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-The Guhae rental property management application follows a serverless architecture pattern on AWS, providing scalability, cost-efficiency, and minimal operational overhead.
+The Guhae rental property management application follows a serverless architecture pattern on AWS, providing scalability, cost-efficiency, and minimal operational overhead. The application supports both development and production environments with separate stacks, multi-tenant security, comprehensive finance management, and custom domain integration.
 
 ## High-Level Architecture
 
@@ -11,10 +11,25 @@ graph TB
     User[👤 User] --> CF[☁️ CloudFront CDN]
     User --> API[🌐 API Gateway]
 
+    subgraph "Custom Domain"
+        CD[www.guhae.com] --> CF
+        SSL[🔒 SSL Certificate] --> CF
+    end
+
     CF --> S3[📦 S3 Static Assets]
     API --> Lambda[⚡ Lambda Function]
     Lambda --> DDB[💾 DynamoDB]
     Lambda --> S3
+
+    subgraph "Multi-Tenant Security"
+        JWT[🔑 JWT Tokens] --> Lambda
+        Auth[👥 User Authentication] --> Lambda
+    end
+
+    subgraph "Environment Separation"
+        DevStack[🧪 guhae-serverless]
+        ProdStack[🚀 guhae-prod]
+    end
 
     IAM[🔐 IAM Role] --> Lambda
     IAM --> DDB
@@ -28,64 +43,82 @@ graph TB
 #### CloudFront Distribution
 
 - **Purpose**: Global CDN for static asset delivery
-- **Resource Name**: `guhae-serverless-web-distribution`
+- **Resource Name**: `{StackName}-web-distribution`
+- **Custom Domain Support**: Configurable via CloudFormation parameters
+- **SSL Integration**: AWS Certificate Manager integration
 - **Features**:
   - Global edge caching
-  - HTTPS termination
-  - Custom domain support (configurable)
+  - HTTPS termination and redirection
+  - Custom domain aliases (www.guhae.com for production)
   - Compression and optimization
+  - Development and production environment separation
 
 #### Static Website Hosting
 
-- **Storage**: S3 bucket (`guhae-serverless-assets-{AccountId}`)
-- **Content**: HTML, CSS, JavaScript, images
+- **Storage**: S3 bucket (`{StackName}-assets-{AccountId}`)
+- **Content**: HTML, CSS, JavaScript, images, favicons
 - **Access**: Public read via bucket policy
 - **Caching**: Leverages CloudFront for performance
+- **Pages**:
+  - `index.html`: Landing page with login/registration
+  - `dashboard.html`: Main property management interface
+  - `property_detail.html`: Individual property details with Finance system
+  - `add_property.html`: Property creation form
+  - `profile.html`: User profile management
 
 ### 🔗 API Layer
 
 #### API Gateway
 
 - **Type**: REST API
-- **Resource Name**: `guhae-serverless-rental-property-api`
+- **Resource Name**: `{StackName}-rental-property-api`
 - **Stage**: `prod`
 - **Features**:
   - CORS enabled for browser access
   - Request/response transformation
   - Throttling and rate limiting
   - Integration with Lambda proxy
+  - Multi-tenant routing with JWT authentication
 
 #### Lambda Function
 
-- **Name**: `guhae-serverless-rental-property-api-handler`
+- **Name**: `{StackName}-rental-property-api-handler`
 - **Runtime**: Python 3.9
 - **Handler**: `lambda_function.lambda_handler`
 - **Features**:
   - Unified handler for API and web requests
   - Route-based request processing
-  - Template rendering for web pages
-  - JSON API responses
+  - JWT-based authentication and authorization
+  - Multi-tenant data isolation
+  - Finance management endpoints
+  - User management and property CRUD operations
 
 ### 💾 Data Layer
 
 #### DynamoDB Table
 
-- **Name**: `guhae-serverless-rental-properties`
+- **Name**: `{StackName}-rental-properties`
 - **Type**: NoSQL document database
 - **Billing**: Pay-per-request (on-demand)
 - **Key Schema**:
   - Partition Key: `property_id` (String)
+- **Global Secondary Index**:
+  - `owner_id-index`: For multi-tenant data isolation
+  - Partition Key: `owner_id` (String)
+  - Sort Key: `created_at` (String)
 - **Features**:
   - Automatic scaling
-  - Built-in security
+  - Built-in security with encryption at rest
   - Millisecond latency
-  - Backup and restore
+  - Multi-tenant data isolation
+  - Finance and loan data storage
 
 #### Data Model
 
 ```json
 {
   "property_id": "uuid-string",
+  "owner_id": "user-uuid",
   "title": "Property Title",
   "address": "Full Address",
   "rent": 1200,
@@ -94,18 +127,97 @@ graph TB
   "bathrooms": 1,
   "status": "available|rented|maintenance",
   "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "finance": {
+    "ownership_type": "Individual|Joint|LLC|Corporation",
+    "ownership_status": "Owned|Financed|Rented",
+    "purchase_info": {
+      "purchase_price": 250000,
+      "purchase_date": "2023-01-15",
+      "builder": "ABC Construction",
+      "seller": "John Doe",
+      "buyer_agent": "Jane Smith",
+      "title_company": "Secure Title Co"
+    },
+    "loans": [
+      {
+        "loan_id": "uuid",
+        "financial_institution": "Bank Name",
+        "loan_type": "Conventional|FHA|VA|Jumbo",
+        "loan_amount": 200000,
+        "interest_rate": 3.5,
+        "loan_term": 30,
+        "monthly_payment": 1200,
+        "start_date": "2023-01-15",
+        "status": "Active|Ended"
+      }
+    ]
+  }
+}
+```
+
+#### User Model
+
+```json
+{
+  "user_id": "uuid-string",
+  "email": "user@example.com",
+  "password_hash": "bcrypt-hash",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "+1234567890",
+  "created_at": "2024-01-01T00:00:00Z",
   "updated_at": "2024-01-01T00:00:00Z"
 }
 ```
 
 ### 🔐 Security Layer
 
+#### Multi-Tenant Security
+
+- **JWT Authentication**: Token-based user authentication
+- **User Isolation**: owner_id-based data segregation
+- **Authorization**: Per-request ownership verification
+- **Session Management**: Secure token storage and validation
+
 #### IAM Role & Policies
 
-- **Lambda Execution Role**: `guhae-serverless-lambda-execution-role`
-- **Deployment Policy**: `GuhaeDeploymentPolicy` (4.7KB comprehensive permissions)
-- **Principle**: Least privilege access
-- **Scope**: Resources prefixed with `guhae-*`
+- **Lambda Execution Role**: `{StackName}-lambda-execution-role`
+- **Deployment Policy**: `GuhaeDeploymentPolicy` (comprehensive permissions)
+- **Principle**: Least privilege access with resource prefixing
+- **Environment Separation**: Separate IAM resources per stack
+
+## Environment Architecture
+
+### 🏗️ Multi-Environment Strategy
+
+#### Development Environment (`guhae-serverless`)
+- **Purpose**: Testing and development
+- **URL**: AWS-generated CloudFront domain
+- **Database**: Separate DynamoDB table for dev data
+- **Isolation**: Complete infrastructure separation from production
+
+#### Production Environment (`guhae-prod`)
+- **Purpose**: Live application for end users
+- **URL**: Custom domain (www.guhae.com)
+- **SSL**: AWS Certificate Manager with DNS validation
+- **Database**: Separate production DynamoDB table
+- **Monitoring**: Enhanced logging and alerting
+
+### 🔄 Deployment Strategy
+
+#### Infrastructure Separation
+```yaml
+# Development Stack Resources
+guhae-serverless-assets-{AccountId}      # S3 Bucket
+guhae-serverless-rental-properties       # DynamoDB Table
+guhae-serverless-lambda-execution-role   # IAM Role
+
+# Production Stack Resources  
+guhae-prod-assets-{AccountId}            # S3 Bucket
+guhae-prod-rental-properties             # DynamoDB Table
+guhae-prod-lambda-execution-role         # IAM Role
+```
 
 ## Request Flow
 
@@ -262,10 +374,13 @@ Resources:
 
 ### 🌐 Frontend
 
-- **HTML5**: Semantic markup
-- **CSS3**: Modern styling with Flexbox/Grid
-- **JavaScript**: Vanilla JS for interactivity
-- **Bootstrap**: Responsive UI framework
+- **HTML5**: Semantic markup with accessibility features
+- **CSS3**: Modern styling with Bootstrap 5.3 framework
+- **JavaScript ES6+**: Modern vanilla JavaScript with modular architecture
+- **Authentication**: JWT token management and session handling
+- **State Management**: Local storage and session management
+- **UI Framework**: Bootstrap with Font Awesome icons
+- **Architecture**: MVC pattern with service layer abstraction
 
 ### ☁️ AWS Services
 
@@ -290,13 +405,38 @@ Resources:
 
 ```
 src/
-├── lambda_function.py      # Main handler (Controller)
-├── services/               # Business logic (Model)
-│   ├── database.py        # Data access layer
-│   └── properties.py      # Domain logic
-├── templates/             # Views (HTML templates)
-├── static/               # Static assets
-└── utils/                # Helper functions
+├── lambda_function.py          # Main handler with JWT auth
+├── config.py                   # Configuration management
+├── services/                   # Business logic layer
+│   ├── __init__.py
+│   ├── database.py            # Data access with multi-tenant support
+│   └── properties.py          # Property and finance domain logic
+├── utils/                     # Helper functions
+│   ├── __init__.py
+│   ├── aws_helpers.py         # AWS service utilities
+│   └── validators.py          # Input validation
+└── frontend/                  # Static web assets
+    ├── index.html             # Landing/login page
+    ├── dashboard.html         # Main property dashboard
+    ├── property_detail.html   # Property details with finance
+    ├── add_property.html      # Property creation form
+    ├── profile.html           # User profile management
+    ├── favicon.svg            # Application icon
+    └── static/
+        ├── css/
+        │   ├── style.css      # Main application styles
+        │   └── dashboard.css  # Dashboard-specific styles
+        └── js/
+            ├── auth.js        # Authentication management
+            ├── models.js      # Data models and validation
+            ├── services.js    # API service layer
+            ├── utils.js       # Utility functions
+            ├── components.js  # Reusable UI components
+            ├── dashboard.js   # Dashboard functionality
+            ├── property_detail.js # Property detail page logic
+            ├── add_property.js    # Property creation logic
+            ├── profile.js     # User profile management
+            └── data.js        # Data management utilities
 ```
 
 ## Future Enhancements

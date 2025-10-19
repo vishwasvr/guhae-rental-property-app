@@ -2,7 +2,7 @@
 
 ## Overview
 
-Complete guide for deploying the Guhae rental property management application.
+Complete guide for deploying the Guhae rental property management application with multi-environment support (development and production) and custom domain integration.
 
 ## Prerequisites
 
@@ -11,6 +11,21 @@ Complete guide for deploying the Guhae rental property management application.
 - **Git** (for version control and deployment)
 - **AWS Account** with appropriate permissions
 - **Dedicated IAM User** (see [Security Setup](SECURITY.md))
+- **Domain ownership** (for production deployment with custom domain)
+
+## Environment Strategy
+
+### 🧪 Development Environment (`guhae-serverless`)
+- **Purpose**: Testing and development
+- **URL**: AWS-generated CloudFront domain
+- **Database**: Separate DynamoDB table for dev data
+- **Deployment**: Quick iterations and testing
+
+### 🚀 Production Environment (`guhae-prod`)
+- **Purpose**: Live application for end users
+- **URL**: Custom domain (www.guhae.com)
+- **SSL**: AWS Certificate Manager with DNS validation
+- **Database**: Separate production DynamoDB table
 
 ## Deployment Process
 
@@ -25,16 +40,57 @@ cd guhae-rental-property-app
 
 Complete the [Security Setup Guide](SECURITY.md) first.
 
-### Step 3: Deploy Infrastructure & Code
+### Step 3: Choose Deployment Environment
+
+#### 🧪 Development Deployment
+
+For testing and development:
 
 ```bash
 cd deployment
 
-# Method 1: Secure deployment with dedicated user (RECOMMENDED)
-AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
+# Deploy development environment
+STACK_NAME="guhae-serverless" ./deploy-serverless.sh all
+```
 
-# Method 2: Using default AWS credentials (less secure)
-./deploy-serverless.sh all
+#### 🚀 Production Deployment with Custom Domain
+
+For production with your custom domain:
+
+##### 3a. Request SSL Certificate
+
+```bash
+# Request certificate for your domain
+aws acm request-certificate \
+  --domain-name "guhae.com" \
+  --subject-alternative-names "www.guhae.com" \
+  --validation-method DNS \
+  --region us-east-1
+```
+
+##### 3b. Add DNS Validation Records
+
+Add the CNAME records provided by AWS to your domain registrar's DNS settings.
+
+##### 3c. Deploy Production Environment
+
+```bash
+# Deploy production with custom domain (after certificate is validated)
+./deploy-custom-domain.sh \
+  -s guhae-prod \
+  -d www.guhae.com \
+  -c arn:aws:acm:us-east-1:account:certificate/cert-id \
+  all
+```
+
+##### 3d. Configure DNS for Your Domain
+
+Add these DNS records to point your domain to the CloudFront distribution:
+
+```
+Type: CNAME
+Name: www
+Value: your-cloudfront-domain.cloudfront.net
 ```
 
 ### Step 4: Verify Deployment
