@@ -4,6 +4,10 @@ on:
   push:
     branches: [develop]
 
+env:
+  STACK_NAME: guhae-dev
+  REGION: us-east-1
+
 jobs:
   quality-check:
     runs-on: ubuntu-latest
@@ -141,7 +145,3 @@ jobs:
           ./deploy-serverless.sh
 
           echo "✅ Development deployment completed successfully!"
-
-env:
-  STACK_NAME: guhae-dev
-  REGION: us-east-1
