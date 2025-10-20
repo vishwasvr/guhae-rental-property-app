@@ -27,17 +27,39 @@ pip install -r requirements.txt
 
 #### 2. Environment Configuration
 
+**Required Environment Variables** (validated at startup):
+
+- `DYNAMODB_TABLE_NAME` - DynamoDB table for data storage
+- `S3_BUCKET_NAME` - S3 bucket for file storage
+- `COGNITO_USER_POOL_ID` - Cognito User Pool identifier
+- `COGNITO_CLIENT_ID` - Cognito Client identifier
+
+**Recommended Variables:**
+
+- `AWS_REGION` - AWS region (defaults to us-east-1)
+- `JWT_SECRET_KEY` - Secret key for JWT operations
+
 ```bash
 # Create .env file for local development
 cat > .env << EOF
+# Required variables (will cause startup failure if missing)
+DYNAMODB_TABLE_NAME=guhae-serverless-rental-properties
+S3_BUCKET_NAME=guhae-serverless-assets-YOUR-ACCOUNT-ID
+COGNITO_USER_POOL_ID=your-cognito-user-pool-id
+COGNITO_CLIENT_ID=your-cognito-client-id
+
+# Recommended variables
 AWS_REGION=us-east-1
-DYNAMODB_TABLE=guhae-serverless-rental-properties
-S3_BUCKET=guhae-serverless-assets-YOUR-ACCOUNT-ID
-LOCAL_DEVELOPMENT=true
 JWT_SECRET_KEY=your-local-development-secret-key
+
+# Optional variables
+LOCAL_DEVELOPMENT=true
 DEBUG=true
+LOG_LEVEL=INFO
 EOF
 ```
+
+> **⚠️ Important**: The Lambda function will fail to start if any required environment variables are missing. This validation prevents runtime errors and provides clear error messages.
 
 #### 3. Local DynamoDB (Optional)
 
@@ -110,13 +132,61 @@ vim src/templates/dashboard.html
 
 ### 2. Local Testing
 
-```bash
-# Test changes locally
-cd src
-python -m flask --app lambda_function run --debug
+#### Backend Testing Setup
 
-# Run unit tests (if available)
-python -m pytest tests/
+```bash
+# Install test dependencies (if not already installed)
+pip install pytest pytest-cov pytest-mock moto boto3
+
+# Run all backend unit tests
+pytest tests/unit/ -v --cov=src --cov-report=html
+
+# Run specific test file
+pytest tests/unit/test_lambda_function.py -v
+
+# Run with coverage report
+pytest tests/unit/ --cov=src --cov-report=term-missing
+
+# Run integration tests
+pytest tests/integration/ -v
+```
+
+#### Frontend Testing Setup
+
+```bash
+# Navigate to frontend directory (if separate)
+cd src/frontend
+
+# Install frontend test dependencies
+npm install
+
+# Run all frontend tests
+npm test
+
+# Run with coverage
+npm test -- --coverage --watchAll=false
+
+# Run specific test file
+npm test auth.test.js
+```
+
+#### Test Coverage Requirements
+
+- **Backend**: Minimum 80% code coverage
+- **Frontend**: Function and branch coverage tracking
+- **Integration**: API workflow validation
+
+#### Running Tests in Development
+
+```bash
+# Quick test run during development
+pytest tests/unit/ -x --tb=short
+
+# Run tests with detailed output
+pytest tests/unit/ -v -s
+
+# Run tests in parallel (if pytest-xdist installed)
+pytest tests/unit/ -n auto
 ```
 
 ### 3. Deploy Changes
@@ -429,6 +499,7 @@ aws cloudformation create-change-set \
 
 ## Related Documentation
 
+- [Testing Strategy](TESTING.md) - Comprehensive testing infrastructure and strategy
 - [Deployment Guide](DEPLOYMENT.md) - Production deployment
 - [API Reference](API.md) - Complete API documentation
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions

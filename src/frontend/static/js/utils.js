@@ -1,9 +1,14 @@
 // Common utilities and configuration for the Guhae application
 
-// Configuration
+// Configuration - API URL will be set dynamically based on deployment
 const CONFIG = {
+  // API_BASE_URL will be set by the deployment process
+  // For local development, use relative paths or localhost
   API_BASE_URL:
-    "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api",
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+      ? "http://localhost:3000/api" // For local development
+      : "/api", // Production - use relative path to same domain
   STORAGE_KEYS: {
     ACCESS_TOKEN: "accessToken",
     ID_TOKEN: "idToken",
@@ -22,7 +27,12 @@ const AuthUtils = {
   // Get current user info
   getCurrentUser() {
     const userInfo = localStorage.getItem(CONFIG.STORAGE_KEYS.USER_INFO);
-    return userInfo ? JSON.parse(userInfo) : null;
+    if (!userInfo) return null;
+    try {
+      return JSON.parse(userInfo);
+    } catch (e) {
+      return null;
+    }
   },
 
   // Get authentication headers for API requests

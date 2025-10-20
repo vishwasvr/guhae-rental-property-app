@@ -108,6 +108,28 @@ graph LR
 - **API Access Logs**: Complete audit trail of all API requests
 - **Error Tracking**: Security-related errors and anomalies
 
+### 🔍 Automated Security Scanning
+
+The application includes automated security validation in the CI/CD pipeline:
+
+**Code Security Analysis:**
+
+- **Bandit**: Python static security analysis for common vulnerabilities
+- **Dependency Scanning**: Automated checks for known security vulnerabilities in packages
+- **Secrets Detection**: Prevention of hardcoded secrets in codebase
+
+**Runtime Security:**
+
+- **Environment Variable Validation**: Ensures secure configuration at startup
+- **AWS Resource Permissions**: Validates proper access controls
+- **Input Sanitization**: XSS and injection attack prevention
+
+**CI/CD Security Gates:**
+
+- All security scans must pass before deployment
+- High-severity vulnerabilities block deployment
+- Security reports are archived for compliance auditing
+
 ## Security Benefits
 
 - ✅ **Principle of Least Privilege** - Only required permissions

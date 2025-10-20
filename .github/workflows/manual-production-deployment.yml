@@ -1,0 +1,198 @@
+name: Manual Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deployment:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+      stack_name:
+        description: 'CloudFormation stack name'
+        required: true
+        default: 'guhae-prod'
+        type: string
+      custom_domain:
+        description: 'Custom domain (leave empty for no custom domain)'
+        required: false
+        default: 'www.guhae.com'
+        type: string
+
+# Environment configuration
+env:
+  STACK_NAME: ${{ inputs.stack_name || 'guhae-prod' }}
+  CUSTOM_DOMAIN: ${{ inputs.custom_domain || 'www.guhae.com' }}
+  REGION: us-east-1
+
+jobs:
+  manual-deploy-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: github.event.inputs.confirm_deployment != 'deploy'
+        run: |
+          echo "❌ Deployment not confirmed. Type 'deploy' to confirm."
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install AWS CLI and dependencies
+        run: |
+          pip install awscli boto3
+
+      - name: Validate AWS credentials
+        run: |
+          aws sts get-caller-identity
+
+      - name: Get SSL certificate ARN (if custom domain provided)
+        id: ssl-cert
+        if: env.CUSTOM_DOMAIN != ''
+        run: |
+          CERT_ARN=$(aws acm list-certificates \
+            --region us-east-1 \
+            --query 'CertificateSummaryList[?DomainName==`${{ env.CUSTOM_DOMAIN }}`].CertificateArn' \
+            --output text)
+
+          if [ -z "$CERT_ARN" ]; then
+            echo "⚠️ SSL certificate not found for ${{ env.CUSTOM_DOMAIN }} - deploying without custom domain"
+            echo "cert-arn=" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found SSL certificate: $CERT_ARN"
+            echo "cert-arn=$CERT_ARN" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy infrastructure
+        run: |
+          cd deployment
+
+          echo "🚀 Starting manual production deployment..."
+          echo "Stack: ${{ env.STACK_NAME }}"
+          echo "Domain: ${{ env.CUSTOM_DOMAIN }}"
+          echo "Certificate: ${{ steps.ssl-cert.outputs.cert-arn || 'none' }}"
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Deploy with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              infrastructure
+          else
+            # Deploy without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh infrastructure
+          fi
+
+      - name: Deploy Lambda function
+        run: |
+          cd deployment
+
+          echo "📦 Deploying Lambda function code..."
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Update with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              code
+          else
+            # Update without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh code
+          fi
+
+      - name: Deploy website
+        run: |
+          cd deployment
+
+          echo "🌐 Deploying static website..."
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Upload with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              website
+          else
+            # Upload without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh website
+          fi
+
+      - name: Get deployment URLs
+        id: deployment-info
+        run: |
+          # Get CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+
+          WEBSITE_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "website-url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          echo "🩺 Running post-deployment health checks..."
+
+          # Wait for deployment to propagate
+          sleep 30
+
+          # Test API health endpoint
+          if curl -f -s "${{ steps.deployment-info.outputs.api-url }}/api/health" > /dev/null; then
+            echo "✅ API health check passed"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+
+          # Test website accessibility
+          if curl -f -s -I "${{ steps.deployment-info.outputs.website-url }}" > /dev/null; then
+            echo "✅ Website accessibility check passed"
+          else
+            echo "❌ Website accessibility check failed"
+            exit 1
+          fi
+
+      - name: Manual deployment summary
+        run: |
+          echo "🎉 Manual production deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Summary:"
+          echo "   🌍 Website URL: ${{ steps.deployment-info.outputs.website-url }}"
+          echo "   🔗 API URL: ${{ steps.deployment-info.outputs.api-url }}"
+          echo "   🏗️  Stack Name: ${{ env.STACK_NAME }}"
+          echo "   🌐 Region: ${{ env.REGION }}"
+          echo "   📅 Deployed at: $(date)"
+          echo "   👤 Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "🧪 Test Commands:"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/health'"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/properties'"

@@ -1,0 +1,445 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "AWS CodePipeline for Guhae Rental Property App CI/CD"
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: "GitHub repository owner (username or organization)"
+    Default: "vishwasvr"
+
+  GitHubRepo:
+    Type: String
+    Description: "GitHub repository name"
+    Default: "guhae-rental-property-app"
+
+  GitHubBranch:
+    Type: String
+    Description: "GitHub branch to trigger pipeline"
+    Default: "main"
+
+  CodeStarConnectionArn:
+    Type: String
+    Description: "ARN of the AWS CodeStar Connection for GitHub"
+    Default: ""
+
+  DevStackName:
+    Type: String
+    Description: "Development CloudFormation stack name"
+    Default: "guhae-serverless"
+
+  ProdStackName:
+    Type: String
+    Description: "Production CloudFormation stack name"
+    Default: "guhae-prod"
+
+  ProdDomain:
+    Type: String
+    Description: "Production domain name"
+    Default: "www.guhae.com"
+
+  NotificationEmail:
+    Type: String
+    Description: "Email for deployment notifications"
+    Default: "admin@guhae.com"
+
+Resources:
+  # S3 bucket for CodePipeline artifacts
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-artifacts-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # IAM Role for CodePipeline
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-pipeline-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
+      Policies:
+        - PolicyName: PipelineExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "${PipelineArtifactBucket}/*"
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:GetTemplate
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                Resource:
+                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DevStackName}/*"
+                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${ProdStackName}/*"
+              - Effect: Allow
+                Action:
+                  - lambda:UpdateFunctionCode
+                  - lambda:GetFunction
+                  - lambda:PublishVersion
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${DevStackName}-*"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProdStackName}-*"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${DevStackName}-assets-${AWS::AccountId}/*"
+                  - !Sub "arn:aws:s3:::${ProdStackName}-assets-${AWS::AccountId}/*"
+                  - !Sub "arn:aws:s3:::${DevStackName}-assets-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::${ProdStackName}-assets-${AWS::AccountId}"
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                  - cloudfront:ListInvalidations
+                Resource: "*"
+
+  # IAM Role for CodeBuild
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-codebuild-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+        - PolicyName: CodeBuildExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}-*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}-*:*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "${PipelineArtifactBucket}/*"
+
+  # CodeBuild project for testing and building
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${AWS::StackName}-build"
+      Description: "Build and test Guhae rental property app"
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+        Location: !Ref PipelineArtifactBucket
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+        EnvironmentVariables:
+          - Name: STACK_NAME_DEV
+            Value: !Ref DevStackName
+          - Name: STACK_NAME_PROD
+            Value: !Ref ProdStackName
+          - Name: PROD_DOMAIN
+            Value: !Ref ProdDomain
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                python: 3.9
+              commands:
+                - echo "Installing dependencies..."
+                - pip install flake8 pytest boto3
+                - pip install cfn-lint
+            pre_build:
+              commands:
+                - echo "Running pre-build validation..."
+                - echo "Build started on $(date)"
+                - echo "Validating CloudFormation templates..."
+                - cfn-lint deployment/cloudformation-serverless.yaml
+            build:
+              commands:
+                - echo "Running tests..."
+                - flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+                - echo "Creating Lambda deployment package..."
+                - cd src && zip -r ../deployment/lambda-deployment.zip . -x "*.pyc" "__pycache__/*"
+                - cd ..
+                - echo "Package created successfully"
+            post_build:
+              commands:
+                - echo "Build completed successfully"
+                - echo "Lambda package size: $(du -h deployment/lambda-deployment.zip | cut -f1)"
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Sub "/aws/codebuild/${AWS::StackName}-build"
+
+  # SNS Topic for approval notifications
+  ApprovalTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-approval"
+      DisplayName: "Guhae Deployment Approvals"
+
+  ApprovalEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref ApprovalTopic
+      Endpoint: !Ref NotificationEmail
+
+  # CodePipeline
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub "${AWS::StackName}-pipeline"
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeStarSourceConnection
+              Configuration:
+                ConnectionArn: !Ref CodeStarConnectionArn
+                FullRepositoryId: !Sub "${GitHubOwner}/${GitHubRepo}"
+                BranchName: !Ref GitHubBranch
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+        - Name: Test
+          Actions:
+            - Name: TestAction
+              ActionTypeId:
+                Category: Test
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: TestArtifact
+              RunOrder: 1
+
+        - Name: DeployToDev
+          Actions:
+            - Name: DeployDevAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Ref DevStackName
+                TemplatePath: SourceArtifact::deployment/cloudformation-serverless.yaml
+                ParameterOverrides: |
+                  {
+                    "NotificationEmail": "#{NotificationEmail}",
+                    "Environment": "dev"
+                  }
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+              InputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+        - Name: UpdateLambdaDev
+          Actions:
+            - Name: UpdateLambdaDevAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: Lambda
+              Configuration:
+                FunctionName: !Sub "${DevStackName}-rental-property-api-handler"
+                InputArtifactName: TestArtifact
+              InputArtifacts:
+                - Name: TestArtifact
+              RunOrder: 2
+
+        - Name: DeployFrontendDev
+          Actions:
+            - Name: DeployFrontendDevAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: S3
+              Configuration:
+                BucketName: !Sub "${DevStackName}-assets-${AWS::AccountId}"
+                Extract: true
+              InputArtifacts:
+                - Name: SourceArtifact
+                - Name: TestArtifact
+              RunOrder: 3
+
+        - Name: InvalidateCacheDev
+          Actions:
+            - Name: InvalidateCacheDevAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFront
+              Configuration:
+                CloudFrontId: !Sub "${DevStackName}-distribution"
+                ObjectPaths: "/*"
+              RunOrder: 4
+
+        - Name: ManualApproval
+          Actions:
+            - Name: ManualApprovalAction
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Version: "1"
+                Provider: Manual
+              Configuration:
+                NotificationArn: !Ref ApprovalTopic
+                CustomData: "Review the development deployment at https://d3qr4jcsohv892.cloudfront.net before approving production deployment"
+                ExternalEntityLink: "https://d3qr4jcsohv892.cloudfront.net"
+              RunOrder: 1
+
+        - Name: DeployToProd
+          Actions:
+            - Name: DeployProdAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                StackName: !Ref ProdStackName
+                TemplatePath: SourceArtifact::deployment/cloudformation-serverless.yaml
+                ParameterOverrides: |
+                  {
+                    "CustomDomain": "#{ProdDomain}",
+                    "SSLCertificateArn": "arn:aws:acm:us-east-1:723940054516:certificate/a2b18b66-dcb7-4f11-8887-6a6bd5d56a2f",
+                    "NotificationEmail": "#{NotificationEmail}",
+                    "Environment": "prod"
+                  }
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+              InputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+        - Name: UpdateLambdaProd
+          Actions:
+            - Name: UpdateLambdaProdAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: Lambda
+              Configuration:
+                FunctionName: !Sub "${ProdStackName}-rental-property-api-handler"
+                InputArtifactName: TestArtifact
+              InputArtifacts:
+                - Name: TestArtifact
+              RunOrder: 2
+
+        - Name: DeployFrontendProd
+          Actions:
+            - Name: DeployFrontendProdAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: S3
+              Configuration:
+                BucketName: !Sub "${ProdStackName}-assets-${AWS::AccountId}"
+                Extract: true
+              InputArtifacts:
+                - Name: SourceArtifact
+                - Name: TestArtifact
+              RunOrder: 3
+
+        - Name: InvalidateCacheProd
+          Actions:
+            - Name: InvalidateCacheProdAction
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFront
+              Configuration:
+                CloudFrontId: !Sub "${ProdStackName}-distribution"
+                ObjectPaths: "/*"
+              RunOrder: 4
+
+Outputs:
+  PipelineName:
+    Description: "CodePipeline name"
+    Value: !Ref CodePipeline
+    Export:
+      Name: !Sub "${AWS::StackName}-PipelineName"
+
+  PipelineUrl:
+    Description: "CodePipeline console URL"
+    Value: !Sub "https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${CodePipeline}/view"
+    Export:
+      Name: !Sub "${AWS::StackName}-PipelineUrl"
+
+  ArtifactBucket:
+    Description: "S3 bucket for pipeline artifacts"
+    Value: !Ref PipelineArtifactBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ArtifactBucket"

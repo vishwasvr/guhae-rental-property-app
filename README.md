@@ -157,16 +157,16 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 
 ## 📚 Documentation
 
-| **Topic**                   | **Link**                                                                 | **Description**                         |
-| --------------------------- | ------------------------------------------------------------------------ | --------------------------------------- |
-| **🔐 Security Setup**       | [docs/SECURITY.md](docs/SECURITY.md)                                     | IAM user creation & managed policies    |
-| **🚀 Deployment Guide**     | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                                 | Step-by-step deployment process         |
-| **🌐 S3 Frontend**          | [docs/S3_FRONTEND_IMPLEMENTATION.md](docs/S3_FRONTEND_IMPLEMENTATION.md) | S3-hosted frontend architecture details |
-| **✅ Deployment Readiness** | [DEPLOYMENT_READINESS_CHECK.md](DEPLOYMENT_READINESS_CHECK.md)           | Complete system validation checklist    |
-| **🧪 API Reference**        | [docs/API.md](docs/API.md)                                               | Complete API endpoint documentation     |
-| **🚨 Troubleshooting**      | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)                       | Common issues & solutions               |
-| **🔧 Development**          | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                               | Local development setup                 |
-| **🏗️ Architecture**         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Detailed system design                  |
+| **Topic**               | **Link**                                                                 | **Description**                               |
+| ----------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
+| **🔐 Security Setup**   | [docs/SECURITY.md](docs/SECURITY.md)                                     | IAM user creation & managed policies          |
+| **🚀 Deployment Guide** | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                                 | Step-by-step deployment process               |
+| **🧪 Testing Strategy** | [docs/TESTING.md](docs/TESTING.md)                                       | Testing infrastructure, coverage & validation |
+| **🌐 S3 Frontend**      | [docs/S3_FRONTEND_IMPLEMENTATION.md](docs/S3_FRONTEND_IMPLEMENTATION.md) | S3-hosted frontend architecture details       |
+| **🧪 API Reference**    | [docs/API.md](docs/API.md)                                               | Complete API endpoint documentation           |
+| **🚨 Troubleshooting**  | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)                       | Common issues & solutions                     |
+| **🔧 Development**      | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                               | Local development setup                       |
+| **🏗️ Architecture**     | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Detailed system design                        |
 
 ## ✨ Key Features
 

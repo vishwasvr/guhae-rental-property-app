@@ -3,10 +3,46 @@ import boto3
 import os
 import uuid
 import base64
+import jwt
+import requests
 from datetime import datetime
 from decimal import Decimal
+from validation_config import get_required_env_vars, get_recommended_env_vars
 
 # Simple owner-only system - no complex RBAC needed
+
+def validate_environment_variables():
+    """
+    Validate all required environment variables at startup.
+    This prevents runtime failures and provides clear error messages.
+    Uses centralized validation configuration for maintainability.
+    """
+    required_vars = get_required_env_vars()
+    recommended_vars = get_recommended_env_vars()
+
+    missing_required = []
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing_required.append(var)
+
+    if missing_required:
+        error_msg = f"Missing required environment variables: {', '.join(missing_required)}"
+        print(f"ERROR: {error_msg}")
+        raise ValueError(error_msg)
+
+    # Check recommended variables
+    missing_recommended = []
+    for var in recommended_vars:
+        if not os.environ.get(var):
+            missing_recommended.append(var)
+
+    if missing_recommended:
+        print(f"WARNING: Missing recommended environment variables: {', '.join(missing_recommended)}")
+
+    print("✅ Environment variables validated successfully")
+
+# Validate environment variables at module load time
+validate_environment_variables()
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
@@ -18,44 +54,125 @@ bucket_name = os.environ['S3_BUCKET_NAME']
 user_pool_id = os.environ['COGNITO_USER_POOL_ID']
 client_id = os.environ['COGNITO_CLIENT_ID']
 
+# Cache for Cognito public keys
+_cognito_keys = None
+_keys_url = f"https://cognito-idp.{os.environ.get('AWS_REGION', 'us-east-1')}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
+
+def get_cognito_public_keys():
+    """Get and cache Cognito public keys for JWT verification"""
+    global _cognito_keys
+    if _cognito_keys is None:
+        try:
+            response = requests.get(_keys_url, timeout=5)
+            response.raise_for_status()
+            _cognito_keys = response.json()['keys']
+        except Exception as e:
+            print(f"Failed to fetch Cognito keys: {e}")
+            _cognito_keys = []
+    return _cognito_keys
+
+def verify_jwt_token(token):
+    """Verify JWT token signature and claims"""
+    try:
+        # Decode header to get key ID
+        header = jwt.get_unverified_header(token)
+        key_id = header.get('kid')
+
+        if not key_id:
+            return None
+
+        # Get the correct public key
+        keys = get_cognito_public_keys()
+        public_key = None
+        for key in keys:
+            if key['kid'] == key_id:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                break
+
+        if not public_key:
+            return None
+
+        # Verify and decode token
+        decoded = jwt.decode(
+            token,
+            public_key,
+            algorithms=['RS256'],
+            audience=client_id,
+            issuer=f"https://cognito-idp.{os.environ.get('AWS_REGION', 'us-east-1')}.amazonaws.com/{user_pool_id}"
+        )
+
+        return decoded
+
+    except jwt.ExpiredSignatureError:
+        print("Token has expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        print(f"Invalid token: {e}")
+        return None
+    except Exception as e:
+        print(f"Token verification error: {e}")
+        return None
+
+def validate_input(data, required_fields):
+    """Validate input data has required fields"""
+    if not isinstance(data, dict):
+        return False, "Input must be a JSON object"
+
+    missing_fields = []
+    for field in required_fields:
+        if field not in data or data[field] is None or str(data[field]).strip() == "":
+            missing_fields.append(field)
+
+    if missing_fields:
+        return False, f"Missing required fields: {', '.join(missing_fields)}"
+
+    return True, None
+
+def sanitize_string(value, max_length=255):
+    """Sanitize string input"""
+    if not isinstance(value, str):
+        return str(value)[:max_length]
+    return value.strip()[:max_length]
+
 def get_authenticated_user_id(event, headers):
-    """Extract authenticated user ID from JWT token."""
+    """Extract authenticated user ID from JWT token with proper validation."""
     try:
         # Get Authorization header
         auth_header = event.get('headers', {}).get('Authorization') or event.get('headers', {}).get('authorization')
-        
+
         if not auth_header or not auth_header.startswith('Bearer '):
             return None
-            
+
         # Extract token
         token = auth_header.replace('Bearer ', '')
-        
-        # Simple JWT decode (for development - in production use proper JWT validation)
-        # JWT structure: header.payload.signature
-        try:
-            # Decode the payload (second part)
-            payload_part = token.split('.')[1]
-            # Add padding if needed
-            padding = len(payload_part) % 4
-            if padding:
-                payload_part += '=' * (4 - padding)
-            
-            payload = json.loads(base64.b64decode(payload_part))
-            
-            # Extract user identifier (could be 'sub', 'email', or 'username')
-            user_id = payload.get('sub') or payload.get('email') or payload.get('username')
-            
-            if user_id:
-                print(f"Authenticated user: {user_id}")
-                return user_id
-            else:
-                print("No user identifier found in token")
-                return None
-                
-        except Exception as token_error:
-            print(f"Token decode error: {str(token_error)}")
+
+        # Verify JWT token with signature validation
+        decoded_token = verify_jwt_token(token)
+
+        if not decoded_token:
             return None
-            
+
+        # Extract user identifier (Cognito 'sub' claim is most reliable)
+        user_id = decoded_token.get('sub')
+
+        if user_id:
+            print(f"Authenticated user: {user_id}")
+            return user_id
+        else:
+            print("No user identifier found in verified token")
+            return None
+
+    except Exception as e:
+        print(f"Authentication error: {str(e)}")
+        return None
+
+        if user_id:
+            print(f"Authenticated user: {user_id}")
+            return user_id
+        else:
+            print("No user identifier found in verified token")
+            return None
+
     except Exception as e:
         print(f"Authentication error: {str(e)}")
         return None
@@ -709,18 +826,42 @@ def handle_register(event, headers):
     try:
         # Parse request body
         body = json.loads(event.get('body', '{}'))
-        username = body.get('username', '').strip()
-        password = body.get('password', '').strip()
-        email = body.get('email', '').strip()
-        profile = body.get('profile', {})
-        
-        if not username or not password or not email:
+
+        # Validate required fields
+        is_valid, error_msg = validate_input(body, ['username', 'password', 'email'])
+        if not is_valid:
             return {
                 'statusCode': 400,
                 'headers': headers,
                 'body': json.dumps({
                     'success': False,
-                    'message': 'Username, password, and email are required'
+                    'message': error_msg
+                })
+            }
+
+        username = sanitize_string(body.get('username', ''))
+        password = body.get('password', '').strip()
+        email = sanitize_string(body.get('email', ''))
+        profile = body.get('profile', {})
+
+        # Additional validation
+        if len(password) < 8:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Password must be at least 8 characters long'
+                })
+            }
+
+        if '@' not in email or '.' not in email:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Invalid email format'
                 })
             }
         

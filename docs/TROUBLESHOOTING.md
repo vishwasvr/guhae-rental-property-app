@@ -147,13 +147,68 @@ headers = {
 
    ```bash
    # Schedule CloudWatch event to keep function warm
-   aws events put-rule --name warm-lambda --schedule-expression "rate(5 minutes)"
+      aws events put-rule --name warm-lambda --schedule-expression "rate(5 minutes)"
    ```
 
+### 🔧 Lambda Runtime Issues
+
+#### Missing Environment Variables
+
+**Problem**: Lambda function fails to start with validation error
+
+```bash
+ERROR: Missing required environment variables: DYNAMODB_TABLE_NAME, S3_BUCKET_NAME
+ValueError: Missing required environment variables: DYNAMODB_TABLE_NAME, S3_BUCKET_NAME
+```
+
+**Solution**: Configure all required environment variables
+
+**Required Variables:**
+
+- `DYNAMODB_TABLE_NAME` - Your DynamoDB table name
+- `S3_BUCKET_NAME` - Your S3 bucket name
+- `COGNITO_USER_POOL_ID` - Your Cognito User Pool ID
+- `COGNITO_CLIENT_ID` - Your Cognito Client ID
+
+**Recommended Variables:**
+
+- `AWS_REGION` - AWS region (default: us-east-1)
+- `JWT_SECRET_KEY` - Secret key for JWT validation
+
+**Configuration Steps:**
+
+```bash
+# Option 1: Update via AWS Console
+# Lambda Console → Functions → Your Function → Configuration → Environment variables
+
+# Option 2: Update via CloudFormation
+aws cloudformation update-stack --stack-name your-stack \
+  --template-body file://cloudformation-serverless.yaml \
+  --parameters ParameterKey=TableName,ParameterValue=your-table-name
+
+# Option 3: Update via AWS CLI
+aws lambda update-function-configuration --function-name your-function \
+  --environment Variables="{DYNAMODB_TABLE_NAME=your-table-name,S3_BUCKET_NAME=your-bucket}"
+```
+
+#### Environment Variable Validation Warnings
+
+**Problem**: Lambda starts but shows warnings
+
+```bash
+WARNING: Missing recommended environment variables: AWS_REGION, JWT_SECRET_KEY
+```
+
+**Solution**: Add recommended variables for optimal operation (not required but suggested)
+
+### 💾 Database Issues
+
+````
+
 2. **Optimize Lambda code**:
-   - Minimize package size
-   - Use connection pooling for DynamoDB
-   - Initialize resources outside handler function
+- Minimize package size
+- Use connection pooling for DynamoDB
+- Initialize resources outside handler function
 
 ### 💾 Database Issues
 
@@ -163,9 +218,9 @@ headers = {
 
 ```json
 {
-  "errorMessage": "User: arn:aws:sts::123:assumed-role/lambda-role is not authorized to perform: dynamodb:PutItem"
+"errorMessage": "User: arn:aws:sts::123:assumed-role/lambda-role is not authorized to perform: dynamodb:PutItem"
 }
-```
+````
 
 **Solution**: Verify IAM permissions in managed policy
 

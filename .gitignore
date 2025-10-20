@@ -48,5 +48,11 @@ Thumbs.db
 .aws/
 
 # Application specific
+node_modules/
+package-lock.json
+.coverage
+htmlcov/
+*.pyc
+__pycache__/
 uploads/
 temp/
