@@ -34,11 +34,22 @@ This guide walks you through setting up automated production deployments with ma
 8. Enter environment name: `production`
 9. Click **Configure environment**
 
-**For Production Environment:**
+**For Production Environment (Single User):**
 
-- **Required Reviewers**: Check and add approvers
+**Option A: No Required Reviewers (Recommended for solo development)**
+- **Required Reviewers**: Leave unchecked (you can self-approve)
 - **Deployment Branches**: Add branch `main`
 - **Environment URL**: `https://www.guhae.com`
+
+**Option B: Required Reviewers (For team collaboration)**
+- **Required Reviewers**: Check and add team members
+- **Deployment Branches**: Add branch `main`
+- **Environment URL**: `https://www.guhae.com`
+
+**Option C: Use Manual Trigger Only**
+- Skip environment protection entirely
+- Use `workflow_dispatch` to manually trigger deployments
+- No approval required, full control
 
 ### 1.3 Save Configuration
 
@@ -133,6 +144,59 @@ Check the workflow logs for:
 3. Click **Review deployments**
 4. Select the production environment
 5. Click **Approve and deploy**
+
+## Single-User Deployment Options
+
+### Scenario: You're the Only Developer
+
+As a solo developer, you have three options for production deployments:
+
+#### **Option 1: Self-Approval (Recommended)**
+- Configure production environment **without required reviewers**
+- Deployments to `main` will auto-deploy after quality checks pass
+- You maintain control but skip the approval step
+
+#### **Option 2: Manual Trigger Only (Most Control)**
+- Use the **"Manual Production Deployment"** workflow
+- Click **"Run workflow"** in GitHub Actions
+- Type `"deploy"` to confirm deployment
+- No environment protection or approvals needed
+- Full manual control over production deployments
+
+### Manual Production Deployment Workflow
+
+For complete control as a solo developer:
+
+1. **Push code** to `main` branch (quality checks run automatically)
+2. **Go to Actions** tab in GitHub
+3. **Select "Manual Production Deployment"** workflow
+4. **Click "Run workflow"**
+5. **Type "deploy"** in the confirmation field
+6. **Click "Run workflow"** to start deployment
+
+This approach gives you:
+- ✅ No approval loops
+- ✅ Complete deployment control
+- ✅ Can deploy anytime after quality checks
+- ✅ Works perfectly for solo development
+
+### Recommended Setup for Solo Development
+
+1. **Development**: Automatic deployment on `develop` branch
+2. **Production**: Self-approval on `main` branch (no required reviewers)
+3. **Manual Override**: Use workflow dispatch for emergency deployments
+
+### Workflow for Solo Developer
+
+```
+develop branch ── Quality Checks ── ✅ Auto Deploy to Dev
+     │
+     └── Create PR ── Quality Checks ── Self Review ── Merge to Main
+           │
+main branch ── Quality Checks ── ✅ Auto Deploy to Prod (Self-Approved)
+```
+
+This gives you fast feedback in development while maintaining production safety.
 
 ## Troubleshooting
 

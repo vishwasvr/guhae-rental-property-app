@@ -1,41 +1,39 @@
-name: Production Deployment
+name: Manual Production Deployment
 
 on:
-  workflow_run:
-    workflows: ["Code Quality & Security"]
-    branches: [main]
-    types:
-      - completed
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment environment"
+      confirm_deployment:
+        description: 'Type "deploy" to confirm production deployment'
         required: true
-        default: "production"
-        type: choice
-        options:
-          - production
-          - staging
+        type: string
+      stack_name:
+        description: 'CloudFormation stack name'
+        required: true
+        default: 'guhae-prod'
+        type: string
+      custom_domain:
+        description: 'Custom domain (leave empty for no custom domain)'
+        required: false
+        default: 'www.guhae.com'
+        type: string
 
-# Environment protection
+# Environment configuration
 env:
-  PRODUCTION_STACK_NAME: guhae-prod
-  STAGING_STACK_NAME: guhae-staging
-  CUSTOM_DOMAIN: www.guhae.com
+  STACK_NAME: ${{ inputs.stack_name || 'guhae-prod' }}
+  CUSTOM_DOMAIN: ${{ inputs.custom_domain || 'www.guhae.com' }}
   REGION: us-east-1
 
 jobs:
-  deploy-production:
-    # Only run if quality checks passed and manually approved, OR manually triggered
-    if: >
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.workflow.name == 'Code Quality & Security') ||
-      github.event_name == 'workflow_dispatch'
-
+  manual-deploy-production:
     runs-on: ubuntu-latest
-    # Only require environment approval for automated deployments, not manual triggers
-    environment: ${{ github.event_name == 'workflow_run' && 'production' || '' }}
     steps:
+      - name: Validate confirmation
+        if: github.event.inputs.confirm_deployment != 'deploy'
+        run: |
+          echo "❌ Deployment not confirmed. Type 'deploy' to confirm."
+          exit 1
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -59,41 +57,46 @@ jobs:
         run: |
           aws sts get-caller-identity
 
-      - name: Get SSL certificate ARN
+      - name: Get SSL certificate ARN (if custom domain provided)
         id: ssl-cert
+        if: env.CUSTOM_DOMAIN != ''
         run: |
-          # Get the SSL certificate ARN for the custom domain
           CERT_ARN=$(aws acm list-certificates \
             --region us-east-1 \
-            --query 'CertificateSummaryList[?DomainName==`www.guhae.com`].CertificateArn' \
+            --query 'CertificateSummaryList[?DomainName==`${{ env.CUSTOM_DOMAIN }}`].CertificateArn' \
             --output text)
 
           if [ -z "$CERT_ARN" ]; then
-            echo "❌ SSL certificate not found for www.guhae.com"
-            exit 1
+            echo "⚠️ SSL certificate not found for ${{ env.CUSTOM_DOMAIN }} - deploying without custom domain"
+            echo "cert-arn=" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found SSL certificate: $CERT_ARN"
+            echo "cert-arn=$CERT_ARN" >> $GITHUB_OUTPUT
           fi
-
-          echo "cert-arn=$CERT_ARN" >> $GITHUB_OUTPUT
-          echo "✅ Found SSL certificate: $CERT_ARN"
 
       - name: Deploy infrastructure
         run: |
           cd deployment
 
-          echo "🚀 Starting production deployment..."
-          echo "Stack: ${{ env.PRODUCTION_STACK_NAME }}"
+          echo "🚀 Starting manual production deployment..."
+          echo "Stack: ${{ env.STACK_NAME }}"
           echo "Domain: ${{ env.CUSTOM_DOMAIN }}"
-          echo "Certificate: ${{ steps.ssl-cert.outputs.cert-arn }}"
+          echo "Certificate: ${{ steps.ssl-cert.outputs.cert-arn || 'none' }}"
 
           # Make deployment script executable
           chmod +x deploy-custom-domain.sh
 
-          # Deploy with custom domain
-          ./deploy-custom-domain.sh \
-            -s ${{ env.PRODUCTION_STACK_NAME }} \
-            -d ${{ env.CUSTOM_DOMAIN }} \
-            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
-            infrastructure
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Deploy with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              infrastructure
+          else
+            # Deploy without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh infrastructure
+          fi
 
       - name: Deploy Lambda function
         run: |
@@ -104,12 +107,17 @@ jobs:
           # Make deployment script executable
           chmod +x deploy-custom-domain.sh
 
-          # Update Lambda code only (faster than full deployment)
-          ./deploy-custom-domain.sh \
-            -s ${{ env.PRODUCTION_STACK_NAME }} \
-            -d ${{ env.CUSTOM_DOMAIN }} \
-            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
-            code
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Update with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              code
+          else
+            # Update without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh code
+          fi
 
       - name: Deploy website
         run: |
@@ -120,26 +128,30 @@ jobs:
           # Make deployment script executable
           chmod +x deploy-custom-domain.sh
 
-          # Upload website files
-          ./deploy-custom-domain.sh \
-            -s ${{ env.PRODUCTION_STACK_NAME }} \
-            -d ${{ env.CUSTOM_DOMAIN }} \
-            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
-            website
+          if [ -n "${{ steps.ssl-cert.outputs.cert-arn }}" ]; then
+            # Upload with custom domain
+            ./deploy-custom-domain.sh \
+              -s ${{ env.STACK_NAME }} \
+              -d ${{ env.CUSTOM_DOMAIN }} \
+              -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+              website
+          else
+            # Upload without custom domain
+            STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh website
+          fi
 
       - name: Get deployment URLs
         id: deployment-info
         run: |
           # Get CloudFormation outputs
           API_URL=$(aws cloudformation describe-stacks \
-            --stack-name ${{ env.PRODUCTION_STACK_NAME }} \
+            --stack-name ${{ env.STACK_NAME }} \
             --region ${{ env.REGION }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
             --output text)
 
           WEBSITE_URL=$(aws cloudformation describe-stacks \
-            --stack-name ${{ env.PRODUCTION_STACK_NAME }} \
-            --region ${{ env.REGION }} \
+            --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
             --output text)
 
@@ -169,30 +181,18 @@ jobs:
             exit 1
           fi
 
-      - name: Deployment summary
+      - name: Manual deployment summary
         run: |
-          echo "🎉 Production deployment completed successfully!"
+          echo "🎉 Manual production deployment completed successfully!"
           echo ""
           echo "📋 Deployment Summary:"
           echo "   🌍 Website URL: ${{ steps.deployment-info.outputs.website-url }}"
           echo "   🔗 API URL: ${{ steps.deployment-info.outputs.api-url }}"
-          echo "   🏗️  Stack Name: ${{ env.PRODUCTION_STACK_NAME }}"
+          echo "   🏗️  Stack Name: ${{ env.STACK_NAME }}"
           echo "   🌐 Region: ${{ env.REGION }}"
           echo "   📅 Deployed at: $(date)"
+          echo "   👤 Triggered by: ${{ github.actor }}"
           echo ""
           echo "🧪 Test Commands:"
           echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/health'"
           echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/properties'"
-
-      - name: Notify deployment
-        if: success()
-        run: |
-          echo "🚀 Deployment notification would be sent here"
-          # Add Slack, Teams, or email notifications here
-
-      - name: Rollback on failure
-        if: failure()
-        run: |
-          echo "❌ Deployment failed - manual intervention required"
-          echo "Consider rolling back or fixing issues before next deployment"
-          # Add rollback logic here if needed
