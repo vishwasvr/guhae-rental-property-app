@@ -159,6 +159,14 @@
         "cloudformation:ValidateTemplate"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "CognitoOperations",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:*"
+      ],
+      "Resource": "*"
     }
   ]
 }
