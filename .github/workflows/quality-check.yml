@@ -48,16 +48,15 @@ jobs:
           import os
           sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-          import json
+          # Mock boto3 before importing lambda_function
           from unittest.mock import patch, MagicMock
-          import pytest
+          with patch('boto3.resource'), patch('boto3.client'):
+              import lambda_function
 
           def test_lambda_handler_health():
               """Test health endpoint"""
               with patch('lambda_function.table') as mock_table:
                   mock_table.scan.return_value = {'Items': []}
-                  
-                  from lambda_function import lambda_handler
                   
                   event = {
                       'httpMethod': 'GET',
@@ -65,23 +64,21 @@ jobs:
                       'headers': {}
                   }
                   
-                  response = lambda_handler(event, {})
+                  response = lambda_function.lambda_handler(event, {})
                   
                   assert response['statusCode'] == 200
-                  body = json.loads(response['body'])
+                  body = lambda_function.json.loads(response['body'])
                   assert body['status'] == 'healthy'
 
           def test_cors_headers():
               """Test CORS headers are present"""
-              from lambda_function import lambda_handler
-              
               event = {
                   'httpMethod': 'OPTIONS',
                   'path': '/api/properties',
                   'headers': {}
               }
               
-              response = lambda_handler(event, {})
+              response = lambda_function.lambda_handler(event, {})
               
               assert response['statusCode'] == 200
               assert 'Access-Control-Allow-Origin' in response['headers']
