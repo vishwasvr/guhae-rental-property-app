@@ -94,7 +94,9 @@ jobs:
           EOF
           fi
 
-          python -m pytest tests/ -v      - name: CloudFormation Lint
+          python -m pytest tests/ -v
+
+      - name: CloudFormation Lint
         run: |
           pip install cfn-lint
           cfn-lint deployment/cloudformation-serverless.yaml
