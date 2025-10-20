@@ -142,6 +142,6 @@ jobs:
           chmod +x deploy-serverless.sh
 
           # Deploy everything to dev environment
-          ./deploy-serverless.sh
+          ./deploy-serverless.sh all
 
           echo "✅ Development deployment completed successfully!"
