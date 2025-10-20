@@ -123,7 +123,7 @@ deploy_infrastructure() {
         --template-file cloudformation-serverless.yaml \
         --stack-name "$STACK_NAME" \
         --region "$REGION" \
-        --capabilities CAPABILITY_IAM \
+        --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
         --parameter-overrides "${PARAMETERS[@]}" \
         --no-fail-on-empty-changeset
     
