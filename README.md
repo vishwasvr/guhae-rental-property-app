@@ -2,7 +2,7 @@
 
 A modern, serverless rental property management application built on AWS with enterprise-grade Cognito authentication and global CDN delivery.
 
-<!-- CI/CD Pipeline Test - This comment triggers automated testing and deployment -->
+<!-- CI/CD Pipeline Test - This comment triggers automated testing and deployment (retry after policy update) -->
 
 ## 🌐 Live Demo
 
