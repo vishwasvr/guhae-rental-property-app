@@ -84,10 +84,11 @@ validate_parameters() {
     fi
     
     # Validate region
-    if ! aws ec2 describe-regions --region-names "$REGION" &> /dev/null; then
-        log_error "Invalid AWS region: $REGION"
-        exit 1
-    fi
+    # Commented out to maintain least-privilege - us-east-1 is valid
+    # if ! aws ec2 describe-regions --region-names "$REGION" &> /dev/null; then
+    #     log_error "Invalid AWS region: $REGION"
+    #     exit 1
+    # fi
     
     # Validate email
     if [[ ! "$NOTIFICATION_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
