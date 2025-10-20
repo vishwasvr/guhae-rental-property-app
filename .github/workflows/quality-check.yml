@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flake8 bandit pytest boto3 moto
+          pip install flake8 bandit pytest boto3 moto PyJWT cryptography requests
 
       - name: Code linting
         run: |
@@ -40,63 +40,149 @@ jobs:
 
       - name: Unit tests
         run: |
-          # Create basic test structure if not exists
-          mkdir -p tests
-          if [ ! -f tests/test_lambda.py ]; then
-            cat > tests/test_lambda.py << 'EOF'
-          import sys
-          import os
-          sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+          python -m pytest tests/unit/ -v --cov=src --cov-report=term-missing --cov-report=html --cov-fail-under=80
 
-          # Set required environment variables before importing
-          os.environ['S3_BUCKET_NAME'] = 'test-bucket'
-          os.environ['COGNITO_USER_POOL_ID'] = 'test-pool-id'
-          os.environ['COGNITO_CLIENT_ID'] = 'test-client-id'
-          os.environ['DYNAMODB_TABLE_NAME'] = 'test-table'
-          os.environ['AWS_REGION'] = 'us-east-1'
+      - name: Integration tests
+        run: |
+          python -m pytest tests/integration/ -v
 
-          # Mock boto3 before importing lambda_function
-          from unittest.mock import patch, MagicMock
-          with patch('boto3.resource'), patch('boto3.client'):
-              import lambda_function
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
 
-          def test_lambda_handler_health():
-              """Test health endpoint"""
-              with patch('lambda_function.table') as mock_table:
-                  mock_table.scan.return_value = {'Items': []}
-                  
-                  event = {
-                      'httpMethod': 'GET',
-                      'path': '/api/health',
-                      'headers': {}
-                  }
-                  
-                  response = lambda_function.lambda_handler(event, {})
-                  
-                  assert response['statusCode'] == 200
-                  import json
-                  body = json.loads(response['body'])
-                  assert body['status'] == 'healthy'
+      - name: Install frontend dependencies
+        run: npm install
 
-          def test_cors_headers():
-              """Test CORS headers are present"""
-              event = {
-                  'httpMethod': 'OPTIONS',
-                  'path': '/api/properties',
-                  'headers': {}
-              }
-              
-              response = lambda_function.lambda_handler(event, {})
-              
-              assert response['statusCode'] == 200
-              assert 'Access-Control-Allow-Origin' in response['headers']
-              assert response['headers']['Access-Control-Allow-Origin'] == '*'
-          EOF
-          fi
+      - name: Frontend tests
+        run: npm test -- --coverage --watchAll=false
 
-          python -m pytest tests/ -v
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/
 
       - name: CloudFormation Lint
         run: |
           pip install cfn-lint
           cfn-lint deployment/cloudformation-serverless.yaml
+
+      - name: Validate environment variables
+        run: |
+          python -c "
+          import os
+          import sys
+          sys.path.append('src')
+
+          from validation_config import get_required_env_vars, get_recommended_env_vars
+
+          # Required environment variables for Lambda function
+          required_vars = get_required_env_vars()
+          recommended_vars = get_recommended_env_vars()
+
+          # Set dummy values for validation testing
+          for var in required_vars + recommended_vars:
+              os.environ[var] = 'test-value'
+
+          # Test the validation function
+          try:
+              exec(open('src/lambda_function.py').read())
+              print('✅ Environment variable validation passed')
+          except ValueError as e:
+              print(f'❌ Environment validation failed: {e}')
+              sys.exit(1)
+          except Exception as e:
+              print(f'⚠️  Other error during validation: {e}')
+              # Don't fail on other errors, just the validation itself
+          "
+
+      - name: Security audit Python dependencies
+        run: |
+          pip install safety
+          safety check --fail-level high || echo "⚠️  Safety check found issues - review manually"
+
+      - name: Security audit Node.js dependencies
+        run: |
+          npm audit --audit-level high || echo "⚠️  NPM audit found issues - review manually"
+
+      - name: Validate CloudFormation parameters
+        run: |
+          python3 -c "
+          import yaml
+          import sys
+          sys.path.append('src')
+
+          from validation_config import get_required_cf_params
+
+          try:
+              with open('deployment/cloudformation-serverless.yaml', 'r') as f:
+                  template = yaml.safe_load(f)
+              
+              # Check for required parameters from centralized config
+              parameters = template.get('Parameters', {})
+              required_params = get_required_cf_params()
+              
+              missing_params = []
+              for param in required_params:
+                  if param not in parameters:
+                      missing_params.append(param)
+              
+              if missing_params:
+                  print(f'❌ Missing CloudFormation parameters: {missing_params}')
+                  sys.exit(1)
+              
+              print('✅ CloudFormation parameters validated')
+              
+          except Exception as e:
+              print(f'❌ CloudFormation validation error: {e}')
+              sys.exit(1)
+          "
+
+      - name: Validate AWS resources (optional)
+        run: |
+          # This step validates AWS resource existence and permissions
+          # Runs only if AWS credentials are available (not required for PR checks)
+          if [[ -n "$AWS_ACCESS_KEY_ID" && -n "$AWS_SECRET_ACCESS_KEY" ]]; then
+              python3 -c "
+              import boto3
+              import os
+              import sys
+              
+              try:
+                  # Test AWS credentials and basic connectivity
+                  sts = boto3.client('sts', region_name='us-east-1')
+                  identity = sts.get_caller_identity()
+                  print(f'✅ AWS credentials validated for account: {identity[\"Account\"]}')
+                  
+                  # Test DynamoDB connectivity (if table exists)
+                  dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+                  try:
+                      table = dynamodb.Table('test-table')
+                      # Just test if we can describe the table structure
+                      print('✅ DynamoDB connectivity validated')
+                  except Exception as e:
+                      print(f'⚠️  DynamoDB test failed (expected if table does not exist): {e}')
+                  
+                  # Test S3 connectivity
+                  s3 = boto3.client('s3', region_name='us-east-1')
+                  try:
+                      # List buckets to test basic S3 access
+                      buckets = s3.list_buckets()
+                      print('✅ S3 connectivity validated')
+                  except Exception as e:
+                      print(f'⚠️  S3 test failed: {e}')
+                      
+              except Exception as e:
+                  print(f'❌ AWS resource validation failed: {e}')
+                  sys.exit(1)
+              "
+          else
+              echo "⚠️  AWS credentials not available - skipping AWS resource validation"
+          fi

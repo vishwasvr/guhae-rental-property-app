@@ -410,6 +410,7 @@ Resources:
 src/
 ├── lambda_function.py          # Main handler with JWT auth
 ├── config.py                   # Configuration management
+├── validation_config.py        # Centralized validation configuration
 ├── services/                   # Business logic layer
 │   ├── __init__.py
 │   ├── database.py            # Data access with multi-tenant support

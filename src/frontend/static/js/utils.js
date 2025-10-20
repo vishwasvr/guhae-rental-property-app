@@ -27,7 +27,12 @@ const AuthUtils = {
   // Get current user info
   getCurrentUser() {
     const userInfo = localStorage.getItem(CONFIG.STORAGE_KEYS.USER_INFO);
-    return userInfo ? JSON.parse(userInfo) : null;
+    if (!userInfo) return null;
+    try {
+      return JSON.parse(userInfo);
+    } catch (e) {
+      return null;
+    }
   },
 
   // Get authentication headers for API requests

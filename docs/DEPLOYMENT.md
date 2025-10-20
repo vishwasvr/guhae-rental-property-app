@@ -13,6 +13,24 @@ Complete guide for deploying the Guhae rental property management application wi
 - **Dedicated IAM User** (see [Security Setup](SECURITY.md))
 - **Domain ownership** (for production deployment with custom domain)
 
+### Environment Variables Required
+
+The application validates the following environment variables at startup:
+
+**Required Variables:**
+
+- `DYNAMODB_TABLE_NAME` - DynamoDB table identifier
+- `S3_BUCKET_NAME` - S3 bucket for file storage
+- `COGNITO_USER_POOL_ID` - AWS Cognito User Pool ID
+- `COGNITO_CLIENT_ID` - AWS Cognito Client ID
+
+**Recommended Variables:**
+
+- `AWS_REGION` - AWS region (default: us-east-1)
+- `JWT_SECRET_KEY` - Secret key for JWT token validation
+
+> **⚠️ Deployment Note**: The Lambda function will fail to start if required environment variables are missing. Ensure these are properly configured in your CloudFormation template or Lambda environment settings.
+
 ## Environment Strategy
 
 ### 🧪 Development Environment (`guhae-serverless`)

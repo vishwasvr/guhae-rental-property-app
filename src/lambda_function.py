@@ -7,8 +7,42 @@ import jwt
 import requests
 from datetime import datetime
 from decimal import Decimal
+from validation_config import get_required_env_vars, get_recommended_env_vars
 
 # Simple owner-only system - no complex RBAC needed
+
+def validate_environment_variables():
+    """
+    Validate all required environment variables at startup.
+    This prevents runtime failures and provides clear error messages.
+    Uses centralized validation configuration for maintainability.
+    """
+    required_vars = get_required_env_vars()
+    recommended_vars = get_recommended_env_vars()
+
+    missing_required = []
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing_required.append(var)
+
+    if missing_required:
+        error_msg = f"Missing required environment variables: {', '.join(missing_required)}"
+        print(f"ERROR: {error_msg}")
+        raise ValueError(error_msg)
+
+    # Check recommended variables
+    missing_recommended = []
+    for var in recommended_vars:
+        if not os.environ.get(var):
+            missing_recommended.append(var)
+
+    if missing_recommended:
+        print(f"WARNING: Missing recommended environment variables: {', '.join(missing_recommended)}")
+
+    print("✅ Environment variables validated successfully")
+
+# Validate environment variables at module load time
+validate_environment_variables()
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
