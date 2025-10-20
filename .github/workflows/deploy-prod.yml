@@ -1,0 +1,95 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+
+env:
+  AWS_REGION: us-east-1
+  STACK_NAME: guhae-prod
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Infrastructure to Production
+        run: |
+          cd deployment
+          chmod +x deploy-custom-domain.sh
+          ./deploy-custom-domain.sh \
+            -s ${{ env.STACK_NAME }} \
+            -d www.guhae.com \
+            -c ${{ secrets.SSL_CERTIFICATE_ARN }} \
+            all
+        env:
+          ENVIRONMENT: prod
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+
+      - name: Test Production Deployment
+        run: |
+          # Wait for deployment to stabilize
+          sleep 30
+
+          # Test health endpoint
+          HEALTH_URL="https://www.guhae.com/api/health"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL)
+
+          if [ $RESPONSE -eq 200 ]; then
+            echo "✅ Production health check passed"
+          else
+            echo "❌ Production health check failed with status: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Create deployment notification
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅ Success' : '❌ Failed';
+            const message = `
+            ## 🚀 Production Deployment ${status}
+
+            **Environment**: Production
+            **Stack**: guhae-prod
+            **Domain**: https://www.guhae.com
+            **Region**: us-east-1
+            **Release**: ${{ github.event.release.tag_name || 'Manual Deploy' }}
+
+            ${status === '✅ Success' ? 
+              '**🎉 Application is live at https://www.guhae.com**' : 
+              '**⚠️ Deployment failed - check logs for details**'
+            }
+            `;
+
+            // Create issue on deployment failure
+            if ('${{ job.status }}' !== 'success') {
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Production Deployment Failed - ${new Date().toISOString()}`,
+                body: message + '\n\n**Action Required**: Investigate deployment failure and apply hotfix if needed.',
+                labels: ['deployment', 'production', 'urgent']
+              });
+            }

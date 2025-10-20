@@ -1,0 +1,97 @@
+name: Code Quality & Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 bandit pytest boto3 moto
+
+      - name: Code linting
+        run: |
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Security scan
+        run: |
+          bandit -r src/ -f json -o security-report.json || true
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: security-report.json
+
+      - name: Unit tests
+        run: |
+          # Create basic test structure if not exists
+          mkdir -p tests
+          if [ ! -f tests/test_lambda.py ]; then
+            cat > tests/test_lambda.py << 'EOF'
+          import sys
+          import os
+          sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+          import json
+          from unittest.mock import patch, MagicMock
+          import pytest
+
+          def test_lambda_handler_health():
+              """Test health endpoint"""
+              with patch('lambda_function.table') as mock_table:
+                  mock_table.scan.return_value = {'Items': []}
+                  
+                  from lambda_function import lambda_handler
+                  
+                  event = {
+                      'httpMethod': 'GET',
+                      'path': '/api/health',
+                      'headers': {}
+                  }
+                  
+                  response = lambda_handler(event, {})
+                  
+                  assert response['statusCode'] == 200
+                  body = json.loads(response['body'])
+                  assert body['status'] == 'healthy'
+
+          def test_cors_headers():
+              """Test CORS headers are present"""
+              from lambda_function import lambda_handler
+              
+              event = {
+                  'httpMethod': 'OPTIONS',
+                  'path': '/api/properties',
+                  'headers': {}
+              }
+              
+              response = lambda_handler(event, {})
+              
+              assert response['statusCode'] == 200
+              assert 'Access-Control-Allow-Origin' in response['headers']
+              assert response['headers']['Access-Control-Allow-Origin'] == '*'
+          EOF
+          fi
+
+          python -m pytest tests/ -v
+
+      - name: CloudFormation Lint
+        run: |
+          pip install cfn-lint
+          cfn-lint deployment/cloudformation-serverless.yaml
