@@ -2,10 +2,9 @@ name: Development Deployment
 
 on:
   workflow_run:
-    workflows: ["Code Quality & Security"]
+    workflows: ["Quality Checks"]
+    types: [completed]
     branches: [develop]
-    types:
-      - completed
 
 env:
   STACK_NAME: guhae-dev
@@ -13,11 +12,8 @@ env:
 
 jobs:
   deploy-dev:
-    # Only run if quality checks passed
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.workflow.name == 'Code Quality & Security'
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
