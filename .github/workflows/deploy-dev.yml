@@ -1,48 +1,118 @@
-name: Deploy to Development
+name: Development Deployment
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_run:
+    workflows: ["Code Quality & Security"]
+    branches: [develop]
+    types:
+      - completed
 
 env:
-  AWS_REGION: us-east-1
-  STACK_NAME: guhae-serverless
+  STACK_NAME: guhae-dev
+  REGION: us-east-1
 
 jobs:
-  test:
+  deploy-dev:
+    # Only run if quality checks passed
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.workflow.name == 'Code Quality & Security'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.9"
 
-      - name: Install dependencies
+      - name: Install AWS CLI and dependencies
         run: |
-          pip install boto3 pytest
+          pip install awscli boto3
 
-      - name: Lint Python code
+      - name: Validate AWS credentials
         run: |
-          pip install flake8
-          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          aws sts get-caller-identity
 
-      - name: Validate CloudFormation
+      - name: Deploy to development environment
         run: |
-          aws cloudformation validate-template \
-            --template-body file://deployment/cloudformation-serverless.yaml \
-            --region $AWS_REGION
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          cd deployment
 
-  deploy-dev:
-    needs: test
-    runs-on: ubuntu-latest
+          echo "🚀 Starting development deployment..."
+          echo "Stack: ${{ env.STACK_NAME }}"
+          echo "Region: ${{ env.REGION }}"
+
+          # Make deployment script executable
+          chmod +x deploy-serverless.sh
+
+          # Deploy everything to dev environment
+          STACK_NAME=${{ env.STACK_NAME }} ./deploy-serverless.sh all
+
+      - name: Get deployment URLs
+        id: deployment-info
+        run: |
+          # Get CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+
+          WEBSITE_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "website-url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          echo "🩺 Running post-deployment health checks..."
+
+          # Wait for deployment to propagate
+          sleep 30
+
+          # Test API health endpoint
+          if curl -f -s "${{ steps.deployment-info.outputs.api-url }}/api/health" > /dev/null; then
+            echo "✅ API health check passed"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+
+          # Test website accessibility
+          if curl -f -s -I "${{ steps.deployment-info.outputs.website-url }}" > /dev/null; then
+            echo "✅ Website accessibility check passed"
+          else
+            echo "❌ Website accessibility check failed"
+            exit 1
+          fi
+
+      - name: Development deployment summary
+        run: |
+          echo "🎉 Development deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Summary:"
+          echo "   🌍 Website URL: ${{ steps.deployment-info.outputs.website-url }}"
+          echo "   🔗 API URL: ${{ steps.deployment-info.outputs.api-url }}"
+          echo "   🏗️  Stack Name: ${{ env.STACK_NAME }}"
+          echo "   🌐 Region: ${{ env.REGION }}"
+          echo "   📅 Deployed at: $(date)"
+          echo "   🌿 Branch: develop"
+          echo ""
+          echo "🧪 Test Commands:"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/health'"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/properties'"
     if: github.ref == 'refs/heads/main'
     environment: development
 
