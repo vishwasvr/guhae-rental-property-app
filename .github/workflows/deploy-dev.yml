@@ -2,7 +2,7 @@ name: Development Deployment
 
 on:
   workflow_run:
-    workflows: ["Quality Checks"]
+    workflows: ["Code Quality & Security"]
     types: [completed]
     branches: [develop]
 
