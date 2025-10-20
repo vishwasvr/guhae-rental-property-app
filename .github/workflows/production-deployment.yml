@@ -1,0 +1,199 @@
+name: Production Deployment
+
+on:
+  workflow_run:
+    workflows: ["Code Quality & Security"]
+    branches: [main]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+# Environment protection
+env:
+  PRODUCTION_STACK_NAME: guhae-prod
+  STAGING_STACK_NAME: guhae-staging
+  CUSTOM_DOMAIN: www.guhae.com
+  REGION: us-east-1
+
+jobs:
+  deploy-production:
+    # Only run if quality checks passed and manually approved
+    if: >
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.workflow.name == 'Code Quality & Security') ||
+      github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://www.guhae.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install AWS CLI and dependencies
+        run: |
+          pip install awscli boto3
+
+      - name: Validate AWS credentials
+        run: |
+          aws sts get-caller-identity
+
+      - name: Get SSL certificate ARN
+        id: ssl-cert
+        run: |
+          # Get the SSL certificate ARN for the custom domain
+          CERT_ARN=$(aws acm list-certificates \
+            --region us-east-1 \
+            --query 'CertificateSummaryList[?DomainName==`www.guhae.com`].CertificateArn' \
+            --output text)
+
+          if [ -z "$CERT_ARN" ]; then
+            echo "❌ SSL certificate not found for www.guhae.com"
+            exit 1
+          fi
+
+          echo "cert-arn=$CERT_ARN" >> $GITHUB_OUTPUT
+          echo "✅ Found SSL certificate: $CERT_ARN"
+
+      - name: Deploy infrastructure
+        run: |
+          cd deployment
+
+          echo "🚀 Starting production deployment..."
+          echo "Stack: ${{ env.PRODUCTION_STACK_NAME }}"
+          echo "Domain: ${{ env.CUSTOM_DOMAIN }}"
+          echo "Certificate: ${{ steps.ssl-cert.outputs.cert-arn }}"
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          # Deploy with custom domain
+          ./deploy-custom-domain.sh \
+            -s ${{ env.PRODUCTION_STACK_NAME }} \
+            -d ${{ env.CUSTOM_DOMAIN }} \
+            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+            infrastructure
+
+      - name: Deploy Lambda function
+        run: |
+          cd deployment
+
+          echo "📦 Deploying Lambda function code..."
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          # Update Lambda code only (faster than full deployment)
+          ./deploy-custom-domain.sh \
+            -s ${{ env.PRODUCTION_STACK_NAME }} \
+            -d ${{ env.CUSTOM_DOMAIN }} \
+            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+            code
+
+      - name: Deploy website
+        run: |
+          cd deployment
+
+          echo "🌐 Deploying static website..."
+
+          # Make deployment script executable
+          chmod +x deploy-custom-domain.sh
+
+          # Upload website files
+          ./deploy-custom-domain.sh \
+            -s ${{ env.PRODUCTION_STACK_NAME }} \
+            -d ${{ env.CUSTOM_DOMAIN }} \
+            -c ${{ steps.ssl-cert.outputs.cert-arn }} \
+            website
+
+      - name: Get deployment URLs
+        id: deployment-info
+        run: |
+          # Get CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.PRODUCTION_STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+
+          WEBSITE_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.PRODUCTION_STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "website-url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          echo "🩺 Running post-deployment health checks..."
+
+          # Wait for deployment to propagate
+          sleep 30
+
+          # Test API health endpoint
+          if curl -f -s "${{ steps.deployment-info.outputs.api-url }}/api/health" > /dev/null; then
+            echo "✅ API health check passed"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+
+          # Test website accessibility
+          if curl -f -s -I "${{ steps.deployment-info.outputs.website-url }}" > /dev/null; then
+            echo "✅ Website accessibility check passed"
+          else
+            echo "❌ Website accessibility check failed"
+            exit 1
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "🎉 Production deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Summary:"
+          echo "   🌍 Website URL: ${{ steps.deployment-info.outputs.website-url }}"
+          echo "   🔗 API URL: ${{ steps.deployment-info.outputs.api-url }}"
+          echo "   🏗️  Stack Name: ${{ env.PRODUCTION_STACK_NAME }}"
+          echo "   🌐 Region: ${{ env.REGION }}"
+          echo "   📅 Deployed at: $(date)"
+          echo ""
+          echo "🧪 Test Commands:"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/health'"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/properties'"
+
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "🚀 Deployment notification would be sent here"
+          # Add Slack, Teams, or email notifications here
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed - manual intervention required"
+          echo "Consider rolling back or fixing issues before next deployment"
+          # Add rollback logic here if needed

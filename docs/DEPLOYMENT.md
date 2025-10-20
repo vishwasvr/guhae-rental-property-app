@@ -247,3 +247,212 @@ After successful deployment:
 3. Configure custom domain (optional)
 4. Set up monitoring and alerts
 5. Review [Troubleshooting Guide](TROUBLESHOOTING.md) for common issues
+
+## 🚀 Production Deployment Automation
+
+### Overview
+
+The application now includes automated CI/CD with manual approval for production deployments. This ensures code quality while maintaining control over production releases.
+
+### CI/CD Pipeline Flow
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│   Code Push     │ -> │ Quality Checks   │ -> │ Environment      │
+│   (develop)     │    │ (Automated)      │    │ Deployment       │
+└─────────────────┘    └──────────────────┘    └──────────────────┘
+       │                                                │
+       │                                                v
+       │                                     ┌──────────────────┐
+       │                                     │   Dev Deploy     │
+       │                                     │   (Automatic)    │
+       │                                     └──────────────────┘
+       │                                                │
+       └── Create PR ── Quality Checks ── Code Review ──┼── Merge to Main
+                              │                          │
+                              v                          v
+                   ┌──────────────────┐    ┌──────────────────┐
+                   │ Manual Approval  │ -> │ Prod Deploy      │
+                   │ (Required)       │    │ (Approved)       │
+                   └──────────────────┘    └──────────────────┘
+```
+
+### Pipeline Components
+
+#### 1. Code Quality & Security (`quality-check.yml`)
+
+- **Triggers**: Push to `main`/`develop`, Pull Requests to `main`
+- **Checks**: Linting, security scanning, unit tests, integration tests
+- **Coverage**: 80% minimum code coverage required
+- **Validations**: Environment variables, CloudFormation templates, dependencies
+
+#### 2. Development Deployment (`dev-deployment.yml`)
+
+- **Triggers**: After quality checks pass on `develop` branch
+- **Environment**: Development environment (automatic)
+- **Steps**: Full infrastructure and code deployment
+- **Validation**: Health checks and post-deployment testing
+
+#### 3. Production Deployment (`production-deployment.yml`)
+
+- **Triggers**: After quality checks pass on `main` + manual approval
+- **Environment**: Protected production environment
+- **Steps**: Infrastructure, Lambda code, website deployment
+- **Validation**: Health checks and post-deployment testing
+
+### Setting Up Automated Production Deployment
+
+#### Step 1: Configure GitHub Environment Protection
+
+1. Go to your repository settings
+2. Navigate to **Environments** in the left sidebar
+3. Click **New environment**
+4. Name it `production`
+5. Configure protection rules:
+
+**Required Reviewers:**
+
+- Add team members who must approve production deployments
+- Set minimum number of approvals required
+
+**Deployment Branches:**
+
+- Allow deployments from: `main` branch only
+
+**Environment URL:**
+
+- Set to: `https://www.guhae.com`
+
+#### Step 2: Configure AWS Secrets
+
+Add the following secrets to your GitHub repository:
+
+```
+AWS_ACCESS_KEY_ID          # IAM user access key for deployment
+AWS_SECRET_ACCESS_KEY      # IAM user secret key for deployment
+```
+
+**Important**: Use an IAM user with minimal required permissions (see [Security Setup](SECURITY.md)).
+
+#### Step 3: SSL Certificate Setup
+
+Ensure your SSL certificate is issued and validated in AWS Certificate Manager (us-east-1 region) for `www.guhae.com`.
+
+### Deployment Process
+
+#### Automatic Flow:
+
+1. **Code Push**: Developer pushes code to `main` branch
+2. **Quality Checks**: Pipeline runs all validations automatically
+3. **Approval Required**: Deployment waits for manual approval
+4. **Production Deploy**: Approved deployments run automatically
+
+#### Manual Trigger:
+
+You can also trigger production deployment manually:
+
+1. Go to **Actions** tab in GitHub
+2. Select **Production Deployment** workflow
+3. Click **Run workflow**
+4. Select environment and confirm
+
+### Deployment Stages
+
+#### Stage 1: Infrastructure Deployment
+
+- Creates/updates CloudFormation stack
+- Sets up DynamoDB, Cognito, S3, API Gateway, CloudFront
+- Configures IAM roles and permissions
+
+#### Stage 2: Lambda Code Deployment
+
+- Packages Python Lambda function
+- Updates function code in AWS
+- Validates environment variables
+
+#### Stage 3: Website Deployment
+
+- Uploads static files to S3
+- Invalidates CloudFront cache
+- Updates website content
+
+#### Stage 4: Validation & Health Checks
+
+- Tests API endpoints (`/api/health`)
+- Validates website accessibility
+- Confirms all services are operational
+
+### Rollback Strategy
+
+If deployment fails:
+
+1. **Automatic**: Pipeline stops and reports failure
+2. **Manual Rollback**: Use CloudFormation to rollback or redeploy previous version
+3. **Emergency**: Update DNS to point to backup environment
+
+### Monitoring & Notifications
+
+#### Health Monitoring:
+
+- API health endpoint: `GET /api/health`
+- Website availability checks
+- CloudWatch metrics and logs
+
+#### Notifications (Optional):
+
+Add notification integrations:
+
+- Slack notifications for deployment status
+- Email alerts for failures
+- Teams/Slack channels for approvals
+
+### Security Considerations
+
+#### Access Control:
+
+- **Environment Protection**: Requires approval for production access
+- **AWS Credentials**: Stored securely in GitHub secrets
+- **IAM Permissions**: Least-privilege deployment user
+
+#### Audit Trail:
+
+- All deployments logged in GitHub Actions
+- AWS CloudTrail tracks infrastructure changes
+- Approval history maintained in GitHub
+
+### Troubleshooting
+
+#### Common Issues:
+
+**Deployment Stuck on Approval:**
+
+- Check environment protection rules
+- Verify required reviewers are set
+- Ensure approvers have repository access
+
+**AWS Permission Errors:**
+
+- Validate IAM user permissions
+- Check AWS credentials in GitHub secrets
+- Verify SSL certificate access
+
+**Health Check Failures:**
+
+- Wait for CloudFront propagation (5-30 minutes)
+- Check API Gateway and Lambda logs
+- Validate DNS configuration
+
+### Cost Optimization
+
+- **Lambda**: Pay-per-invocation (~$0.50/month idle)
+- **CloudFront**: Pay-per-GB transferred
+- **DynamoDB**: Pay-per-request pricing
+- **API Gateway**: Pay-per-request
+
+### Next Steps
+
+1. Configure environment protection in GitHub
+2. Set up AWS deployment credentials
+3. Test the automated deployment
+4. Add monitoring and notifications
+5. Document emergency procedures

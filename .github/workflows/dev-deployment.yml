@@ -1,0 +1,142 @@
+name: Development Deployment
+
+on:
+  workflow_run:
+    workflows: ["Code Quality & Security"]
+    branches: [develop]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "development"
+        type: choice
+        options:
+          - development
+
+# Environment configuration
+env:
+  DEV_STACK_NAME: guhae-dev
+  REGION: us-east-1
+
+jobs:
+  deploy-development:
+    # Only run if quality checks passed
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.workflow.name == 'Code Quality & Security'
+
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://guhae-dev.example.com # Update with your dev domain
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install AWS CLI and dependencies
+        run: |
+          pip install awscli boto3
+
+      - name: Validate AWS credentials
+        run: |
+          aws sts get-caller-identity
+
+      - name: Deploy to development environment
+        run: |
+          cd deployment
+
+          echo "🚀 Starting development deployment..."
+          echo "Stack: ${{ env.DEV_STACK_NAME }}"
+          echo "Region: ${{ env.REGION }}"
+
+          # Make deployment script executable
+          chmod +x deploy-serverless.sh
+
+          # Deploy everything to dev environment
+          STACK_NAME=${{ env.DEV_STACK_NAME }} ./deploy-serverless.sh all
+
+      - name: Get deployment URLs
+        id: deployment-info
+        run: |
+          # Get CloudFormation outputs
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.DEV_STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+            --output text)
+
+          WEBSITE_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.DEV_STACK_NAME }} \
+            --region ${{ env.REGION }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          echo "website-url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          echo "🩺 Running post-deployment health checks..."
+
+          # Wait for deployment to propagate
+          sleep 30
+
+          # Test API health endpoint
+          if curl -f -s "${{ steps.deployment-info.outputs.api-url }}/api/health" > /dev/null; then
+            echo "✅ API health check passed"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+
+          # Test website accessibility
+          if curl -f -s -I "${{ steps.deployment-info.outputs.website-url }}" > /dev/null; then
+            echo "✅ Website accessibility check passed"
+          else
+            echo "❌ Website accessibility check failed"
+            exit 1
+          fi
+
+      - name: Development deployment summary
+        run: |
+          echo "🎉 Development deployment completed successfully!"
+          echo ""
+          echo "📋 Deployment Summary:"
+          echo "   🌍 Website URL: ${{ steps.deployment-info.outputs.website-url }}"
+          echo "   🔗 API URL: ${{ steps.deployment-info.outputs.api-url }}"
+          echo "   🏗️  Stack Name: ${{ env.DEV_STACK_NAME }}"
+          echo "   🌐 Region: ${{ env.REGION }}"
+          echo "   📅 Deployed at: $(date)"
+          echo "   🌿 Branch: develop"
+          echo ""
+          echo "🧪 Test Commands:"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/health'"
+          echo "   curl '${{ steps.deployment-info.outputs.api-url }}/api/properties'"
+
+      - name: Notify development deployment
+        if: success()
+        run: |
+          echo "🚀 Development deployment completed - ready for testing"
+          # Add Slack, Teams, or email notifications here
+
+      - name: Alert on deployment failure
+        if: failure()
+        run: |
+          echo "❌ Development deployment failed"
+          echo "Check the workflow logs for details"
+          # Add failure notifications here
