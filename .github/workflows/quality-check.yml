@@ -48,6 +48,13 @@ jobs:
           import os
           sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+          # Set required environment variables before importing
+          os.environ['S3_BUCKET_NAME'] = 'test-bucket'
+          os.environ['COGNITO_USER_POOL_ID'] = 'test-pool-id'
+          os.environ['COGNITO_CLIENT_ID'] = 'test-client-id'
+          os.environ['DYNAMODB_TABLE_NAME'] = 'test-table'
+          os.environ['AWS_REGION'] = 'us-east-1'
+
           # Mock boto3 before importing lambda_function
           from unittest.mock import patch, MagicMock
           with patch('boto3.resource'), patch('boto3.client'):
@@ -67,7 +74,8 @@ jobs:
                   response = lambda_function.lambda_handler(event, {})
                   
                   assert response['statusCode'] == 200
-                  body = lambda_function.json.loads(response['body'])
+                  import json
+                  body = json.loads(response['body'])
                   assert body['status'] == 'healthy'
 
           def test_cors_headers():
@@ -86,9 +94,7 @@ jobs:
           EOF
           fi
 
-          python -m pytest tests/ -v
-
-      - name: CloudFormation Lint
+          python -m pytest tests/ -v      - name: CloudFormation Lint
         run: |
           pip install cfn-lint
           cfn-lint deployment/cloudformation-serverless.yaml
