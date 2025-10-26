@@ -111,6 +111,15 @@ class TestDatabaseService:
         assert 'UpdateExpression' in call_args[1]
         assert 'ExpressionAttributeValues' in call_args[1]
 
+    def test_update_property_exception(self, db_service, mock_table):
+        """Test property update with exception"""
+        updates = {'title': 'Updated Title'}
+        mock_table.update_item.side_effect = Exception("Update failed")
+
+        result = db_service.update_property('test-id', updates)
+
+        assert result == {}
+
     def test_delete_property_success(self, db_service, mock_table):
         """Test successful property deletion"""
         mock_table.delete_item.return_value = None
@@ -205,6 +214,22 @@ class TestDatabaseService:
         mock_table.query.return_value = {'Items': []}
 
         result = db_service.get_user_by_email('nonexistent@example.com')
+
+        assert result is None
+
+    def test_get_user_exception(self, db_service, mock_table):
+        """Test user retrieval with exception"""
+        mock_table.get_item.side_effect = Exception("DynamoDB error")
+
+        result = db_service.get_user('test-id')
+
+        assert result is None
+
+    def test_get_user_by_email_exception(self, db_service, mock_table):
+        """Test user retrieval by email with exception"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+
+        result = db_service.get_user_by_email('test@example.com')
 
         assert result is None
 

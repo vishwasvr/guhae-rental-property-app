@@ -74,6 +74,264 @@ class TestLambdaHandler:
         body = json.loads(response['body'])
         assert 'error' in body
 
+    @patch('lambda_function.handle_login')
+    def test_lambda_handler_login_route(self, mock_handle_login):
+        """Test routing to login endpoint"""
+        mock_handle_login.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/auth/login',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_handle_login.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.handle_register')
+    def test_lambda_handler_register_route(self, mock_handle_register):
+        """Test routing to register endpoint"""
+        mock_handle_register.return_value = {'statusCode': 201, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/auth/register',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_handle_register.assert_called_once()
+        assert response['statusCode'] == 201
+
+    @patch('lambda_function.get_profile')
+    def test_lambda_handler_get_profile_route(self, mock_get_profile):
+        """Test routing to get profile endpoint"""
+        mock_get_profile.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/profile',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_get_profile.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.update_profile')
+    def test_lambda_handler_update_profile_route(self, mock_update_profile):
+        """Test routing to update profile endpoint"""
+        mock_update_profile.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/profile',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_update_profile.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.list_properties')
+    def test_lambda_handler_list_properties_route(self, mock_list_properties):
+        """Test routing to list properties endpoint"""
+        mock_list_properties.return_value = {'statusCode': 200, 'body': '[]'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_list_properties.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.create_property')
+    def test_lambda_handler_create_property_route(self, mock_create_property):
+        """Test routing to create property endpoint"""
+        mock_create_property.return_value = {'statusCode': 201, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/properties',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_create_property.assert_called_once()
+        assert response['statusCode'] == 201
+
+    @patch('lambda_function.get_property_finance')
+    def test_lambda_handler_get_property_finance_route(self, mock_get_finance):
+        """Test routing to get property finance endpoint"""
+        mock_get_finance.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties/test-id/finance',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_get_finance.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.update_property_finance')
+    def test_lambda_handler_update_property_finance_route(self, mock_update_finance):
+        """Test routing to update property finance endpoint"""
+        mock_update_finance.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/properties/test-id/finance',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_update_finance.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.add_property_loan')
+    def test_lambda_handler_add_property_loan_route(self, mock_add_loan):
+        """Test routing to add property loan endpoint"""
+        mock_add_loan.return_value = {'statusCode': 201, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/properties/test-id/loans',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_add_loan.assert_called_once()
+        assert response['statusCode'] == 201
+
+    @patch('lambda_function.update_property_loan')
+    def test_lambda_handler_update_property_loan_route(self, mock_update_loan):
+        """Test routing to update property loan endpoint"""
+        mock_update_loan.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/properties/test-id/loans/loan-id',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_update_loan.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.delete_property_loan')
+    def test_lambda_handler_delete_property_loan_route(self, mock_delete_loan):
+        """Test routing to delete property loan endpoint"""
+        mock_delete_loan.return_value = {'statusCode': 204, 'body': ''}
+        
+        event = {
+            'httpMethod': 'DELETE',
+            'path': '/api/properties/test-id/loans/loan-id',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_delete_loan.assert_called_once()
+        assert response['statusCode'] == 204
+
+    @patch('lambda_function.get_property')
+    def test_lambda_handler_get_property_route(self, mock_get_property):
+        """Test routing to get property endpoint"""
+        mock_get_property.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties/test-id',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_get_property.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.update_property')
+    def test_lambda_handler_update_property_route(self, mock_update_property):
+        """Test routing to update property endpoint"""
+        mock_update_property.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/properties/test-id',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_update_property.assert_called_once()
+        assert response['statusCode'] == 200
+
+    @patch('lambda_function.delete_property')
+    def test_lambda_handler_delete_property_route(self, mock_delete_property):
+        """Test routing to delete property endpoint"""
+        mock_delete_property.return_value = {'statusCode': 204, 'body': ''}
+        
+        event = {
+            'httpMethod': 'DELETE',
+            'path': '/api/properties/test-id',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_delete_property.assert_called_once()
+        assert response['statusCode'] == 204
+
+    @patch('lambda_function.get_dashboard_stats')
+    def test_lambda_handler_dashboard_route(self, mock_get_dashboard):
+        """Test routing to dashboard endpoint"""
+        mock_get_dashboard.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/dashboard',
+            'headers': {}
+        }
+
+        response = lambda_function.lambda_handler(event, {})
+        
+        mock_get_dashboard.assert_called_once()
+        assert response['statusCode'] == 200
+
+    def test_lambda_handler_exception_handling(self):
+        """Test exception handling in lambda_handler"""
+        # Create an event that will cause an exception
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties',  # This should work but we'll mock an exception
+            'headers': {}
+        }
+        
+        # Mock the list_properties function to raise an exception
+        with patch('lambda_function.list_properties', side_effect=Exception('Test exception')):
+            response = lambda_function.lambda_handler(event, {})
+            
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert 'error' in body
+            assert body['error'] == 'Test exception'
+
 
 class TestAuthentication:
     """Test authentication functions"""
@@ -397,3 +655,348 @@ class TestUtilityFunctions:
         # Ensure no internal DynamoDB keys are exposed
         assert 'pk' not in formatted
         assert 'sk' not in formatted
+
+
+class TestLoginHandler:
+    """Test login handler function"""
+
+    @patch('lambda_function.cognito_client')
+    @patch('lambda_function.table')
+    def test_handle_login_success(self, mock_table, mock_cognito):
+        """Test successful login"""
+        # Mock Cognito responses
+        mock_cognito.admin_initiate_auth.return_value = {
+            'AuthenticationResult': {
+                'AccessToken': 'test-access-token',
+                'IdToken': 'test-id-token',
+                'RefreshToken': 'test-refresh-token'
+            }
+        }
+        mock_cognito.admin_get_user.return_value = {
+            'UserAttributes': [
+                {'Name': 'email', 'Value': 'test@example.com'},
+                {'Name': 'given_name', 'Value': 'Test'},
+                {'Name': 'family_name', 'Value': 'User'}
+            ]
+        }
+        
+        # Mock DynamoDB profile fetch
+        mock_table.get_item.return_value = {
+            'Item': {
+                'firstName': 'Test',
+                'lastName': 'User',
+                'phone': '123-456-7890'
+            }
+        }
+        
+        event = {
+            'body': json.dumps({
+                'username': 'test@example.com',
+                'password': 'password123'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.handle_login(event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert body['success'] == True
+        assert 'accessToken' in body
+        assert 'user' in body
+
+    @patch('lambda_function.cognito_client')
+    def test_handle_login_missing_credentials(self, mock_cognito):
+        """Test login with missing credentials"""
+        event = {
+            'body': json.dumps({})
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.handle_login(event, headers)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] == False
+        assert 'required' in body['message']
+
+    @patch('lambda_function.cognito_client')
+    def test_handle_login_cognito_error(self, mock_cognito):
+        """Test login with Cognito authentication error"""
+        mock_cognito.admin_initiate_auth.side_effect = Exception('Invalid credentials')
+        
+        event = {
+            'body': json.dumps({
+                'username': 'test@example.com',
+                'password': 'wrongpassword'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.handle_login(event, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert body['success'] == False
+
+
+class TestRegisterHandler:
+    """Test register handler function"""
+
+    @patch('lambda_function.cognito_client')
+    @patch('lambda_function.table')
+    def test_handle_register_success(self, mock_table, mock_cognito):
+        """Test successful registration"""
+        # Mock Cognito responses
+        mock_cognito.admin_create_user.return_value = {
+            'User': {
+                'Username': 'test@example.com'
+            }
+        }
+        mock_cognito.admin_set_user_password.return_value = {}
+        
+        # Mock DynamoDB
+        mock_table.put_item.return_value = {}
+        
+        event = {
+            'body': json.dumps({
+                'email': 'test@example.com',
+                'password': 'password123',
+                'firstName': 'Test',
+                'lastName': 'User'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.handle_register(event, headers)
+        
+        assert response['statusCode'] == 201
+        body = json.loads(response['body'])
+        assert body['success'] == True
+        assert 'user' in body
+
+    @patch('lambda_function.cognito_client')
+    def test_handle_register_missing_fields(self, mock_cognito):
+        """Test registration with missing required fields"""
+        event = {
+            'body': json.dumps({
+                'email': 'test@example.com'
+                # missing password and names
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.handle_register(event, headers)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert body['success'] == False
+
+
+class TestProfileHandlers:
+    """Test profile handler functions"""
+
+    @patch('lambda_function.table')
+    def test_get_profile_success(self, mock_table, valid_jwt_token):
+        """Test successful profile retrieval"""
+        mock_table.get_item.return_value = {
+            'Item': {
+                'firstName': 'Test',
+                'lastName': 'User',
+                'email': 'test@example.com',
+                'phone': '123-456-7890'
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'}
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_profile(event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert body['firstName'] == 'Test'
+        assert body['lastName'] == 'User'
+
+    @patch('lambda_function.table')
+    def test_get_profile_unauthenticated(self, mock_table):
+        """Test profile retrieval without authentication"""
+        event = {
+            'headers': {}
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_profile(event, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    def test_update_profile_success(self, mock_table, valid_jwt_token):
+        """Test successful profile update"""
+        mock_table.update_item.return_value = {
+            'Attributes': {
+                'firstName': 'Updated',
+                'lastName': 'User',
+                'email': 'test@example.com',
+                'updated_at': '2024-01-01T00:00:00Z'
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'},
+            'body': json.dumps({
+                'firstName': 'Updated',
+                'lastName': 'User',
+                'phone': '123-456-7890'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_profile(event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert body['firstName'] == 'Updated'
+
+
+class TestPropertyFinanceHandlers:
+    """Test property finance handler functions"""
+
+    @patch('lambda_function.table')
+    def test_get_property_finance_success(self, mock_table, valid_jwt_token):
+        """Test successful property finance retrieval"""
+        mock_table.get_item.return_value = {
+            'Item': {
+                'property_id': 'test-id',
+                'purchase_price': 250000,
+                'financing': {
+                    'down_payment': 50000,
+                    'loan_amount': 200000,
+                    'interest_rate': 3.5
+                }
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'}
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property_finance('test-id', event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'purchase_price' in body
+        assert 'financing' in body
+
+    @patch('lambda_function.table')
+    def test_get_property_finance_unauthorized(self, mock_table, valid_jwt_token):
+        """Test property finance access by unauthorized user"""
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'other@example.com',  # Different owner
+                'purchase_price': 250000
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'}
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property_finance('test-id', event, headers)
+        
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+
+class TestLoanHandlers:
+    """Test loan handler functions"""
+
+    @patch('lambda_function.table')
+    def test_add_property_loan_success(self, mock_table, valid_jwt_token):
+        """Test successful loan addition"""
+        # Mock property ownership check
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'test@example.com',
+                'title': 'Test Property'
+            }
+        }
+        
+        # Mock loan creation
+        mock_table.put_item.return_value = {}
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'},
+            'body': json.dumps({
+                'loan_amount': 200000,
+                'interest_rate': 3.5,
+                'term_years': 30
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.add_property_loan('test-id', event, headers)
+        
+        assert response['statusCode'] == 201
+        body = json.loads(response['body'])
+        assert 'loan_id' in body
+
+    @patch('lambda_function.table')
+    def test_update_property_loan_success(self, mock_table, valid_jwt_token):
+        """Test successful loan update"""
+        # Mock loan ownership check
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'test@example.com',
+                'loan_amount': 200000
+            }
+        }
+        
+        # Mock loan update
+        mock_table.update_item.return_value = {
+            'Attributes': {
+                'loan_amount': 210000,
+                'updated_at': '2024-01-01T00:00:00Z'
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'},
+            'body': json.dumps({
+                'loan_amount': 210000
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property_loan('test-id', 'loan-id', event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert body['loan_amount'] == 210000
+
+    @patch('lambda_function.table')
+    def test_delete_property_loan_success(self, mock_table, valid_jwt_token):
+        """Test successful loan deletion"""
+        # Mock loan ownership check
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'test@example.com',
+                'loan_amount': 200000
+            }
+        }
+        
+        # Mock loan deletion
+        mock_table.delete_item.return_value = {}
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.delete_property_loan('test-id', 'loan-id', headers)
+        
+        assert response['statusCode'] == 204
