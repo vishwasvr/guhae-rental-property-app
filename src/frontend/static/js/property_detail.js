@@ -360,7 +360,7 @@ class PropertyDetailManager {
     document.getElementById("editSquareFeet").value =
       this.currentProperty.squareFeet || "";
 
-    // Address information - handle both object and string formats
+    // Address information - always structured now
     const address = this.currentProperty.address || {};
     const addressNote = document.getElementById("addressNote");
 
@@ -368,40 +368,27 @@ class PropertyDetailManager {
     console.log("Address type:", typeof address);
     console.log("Address keys:", Object.keys(address));
 
-    // If address is stored as string (older properties), try to parse basic info
-    if (typeof address === "string" || address.fullAddress) {
-      // For string addresses, leave fields empty for user to fill
-      document.getElementById("editStreetAddress").value = "";
-      document.getElementById("editCity").value = "";
-      document.getElementById("editCounty").value = "";
-      document.getElementById("editZipCode").value = "";
-      // Show helpful note
-      if (addressNote) {
-        addressNote.style.display = "block";
-      }
-      console.log("Address stored as string:", address.fullAddress || address);
-    } else {
-      // For structured address objects
-      const streetValue = address.streetAddress || address.street || "";
-      const cityValue = address.city || "";
-      const countyValue = address.county || "";
-      const zipValue = address.zipCode || address.zip || "";
+    // Always populate address fields from structured address object
+    const streetValue = address.streetAddress || address.street || "";
+    const cityValue = address.city || "";
+    const countyValue = address.county || "";
+    const zipValue = address.zipCode || address.zip || "";
 
-      console.log("Setting address fields:", {
-        street: streetValue,
-        city: cityValue,
-        county: countyValue,
-        zip: zipValue,
-      });
+    console.log("Setting address fields:", {
+      street: streetValue,
+      city: cityValue,
+      county: countyValue,
+      zip: zipValue,
+    });
 
-      document.getElementById("editStreetAddress").value = streetValue;
-      document.getElementById("editCity").value = cityValue;
-      document.getElementById("editCounty").value = countyValue;
-      document.getElementById("editZipCode").value = zipValue;
-      // Hide note if fields are populated
-      if (addressNote) {
-        addressNote.style.display = "none";
-      }
+    document.getElementById("editStreetAddress").value = streetValue;
+    document.getElementById("editCity").value = cityValue;
+    document.getElementById("editCounty").value = countyValue;
+    document.getElementById("editZipCode").value = zipValue;
+    
+    // Hide address note since fields are populated
+    if (addressNote) {
+      addressNote.style.display = "none";
     } // Populate state dropdown and set selected value
     if (typeof Components !== "undefined" && Components.populateStateSelect) {
       Components.populateStateSelect("editState");
