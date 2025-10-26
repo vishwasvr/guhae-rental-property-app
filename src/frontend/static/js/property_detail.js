@@ -385,7 +385,15 @@ class PropertyDetailManager {
     document.getElementById("editCity").value = cityValue;
     document.getElementById("editCounty").value = countyValue;
     document.getElementById("editZipCode").value = zipValue;
-    
+
+    // Debug: Check if values were actually set
+    console.log("After setting - actual field values:", {
+      street: document.getElementById("editStreetAddress").value,
+      city: document.getElementById("editCity").value,
+      county: document.getElementById("editCounty").value,
+      zip: document.getElementById("editZipCode").value,
+    });
+
     // Hide address note since fields are populated
     if (addressNote) {
       addressNote.style.display = "none";
@@ -433,6 +441,8 @@ class PropertyDetailManager {
         garageCars:
           parseInt(document.getElementById("editGarageCars").value) || 0,
       };
+
+      console.log("Form data collected:", formData);
 
       // Show loading state
       const saveBtn = document.getElementById("savePropertyBtn");
