@@ -18,6 +18,17 @@ bucket_name = os.environ['S3_BUCKET_NAME']
 user_pool_id = os.environ['COGNITO_USER_POOL_ID']
 client_id = os.environ['COGNITO_CLIENT_ID']
 
+def convert_floats_to_decimals(obj):
+    """Recursively convert float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, dict):
+        return {k: convert_floats_to_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats_to_decimals(item) for item in obj]
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    else:
+        return obj
+
 def get_authenticated_user_id(event, headers):
     """Extract authenticated user ID from JWT token."""
     try:
@@ -259,6 +270,8 @@ def create_property(event, headers):
         }
         
         print(f"Storing item in DynamoDB: {item}")
+        # Convert floats to decimals for DynamoDB compatibility
+        item = convert_floats_to_decimals(item)
         table.put_item(Item=item)
         
         # Return formatted response
