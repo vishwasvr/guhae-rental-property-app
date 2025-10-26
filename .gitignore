@@ -50,3 +50,10 @@ Thumbs.db
 # Application specific
 uploads/
 temp/
+
+# Node.js
+node_modules/
+
+# Coverage
+.coverage
+.coveragerc
