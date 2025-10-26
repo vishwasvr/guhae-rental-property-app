@@ -325,13 +325,16 @@ class PropertyDetailManager {
 
     console.log("Opening edit modal for property:", this.currentProperty);
 
-    // Populate the form with current property data
-    this.populateEditForm();
-
-    // Show the modal
+    // Show the modal first
     const modal = new bootstrap.Modal(
       document.getElementById("editPropertyModal")
     );
+    
+    // Populate the form after the modal is fully shown
+    modal.addEventListener('shown.bs.modal', () => {
+      this.populateEditForm();
+    }, { once: true });
+    
     modal.show();
   }
 
@@ -393,6 +396,16 @@ class PropertyDetailManager {
       county: document.getElementById("editCounty").value,
       zip: document.getElementById("editZipCode").value,
     });
+
+    // Check values again after a short delay to see if they're being cleared
+    setTimeout(() => {
+      console.log("After 100ms delay - field values:", {
+        street: document.getElementById("editStreetAddress").value,
+        city: document.getElementById("editCity").value,
+        county: document.getElementById("editCounty").value,
+        zip: document.getElementById("editZipCode").value,
+      });
+    }, 100);
 
     // Hide address note since fields are populated
     if (addressNote) {
