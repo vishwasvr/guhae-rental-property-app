@@ -1000,3 +1000,193 @@ class TestLoanHandlers:
         response = lambda_function.delete_property_loan('test-id', 'loan-id', headers)
         
         assert response['statusCode'] == 204
+
+
+class TestLambdaHandlerIntegration:
+    """Integration tests for lambda_handler with various scenarios"""
+
+    @patch('lambda_function.list_properties')
+    def test_lambda_handler_list_properties_integration(self, mock_list_properties):
+        """Test full integration of list properties through lambda_handler"""
+        mock_list_properties.return_value = {'statusCode': 200, 'body': '[]'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties',
+            'headers': {'Authorization': 'Bearer test-token'}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 200
+        mock_list_properties.assert_called_once()
+
+    @patch('lambda_function.create_property')
+    def test_lambda_handler_create_property_integration(self, mock_create_property):
+        """Test full integration of create property through lambda_handler"""
+        mock_create_property.return_value = {'statusCode': 201, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/properties',
+            'headers': {'Authorization': 'Bearer test-token'},
+            'body': '{"title": "Test Property"}'
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 201
+        mock_create_property.assert_called_once()
+
+    @patch('lambda_function.get_property')
+    def test_lambda_handler_get_property_integration(self, mock_get_property):
+        """Test full integration of get property through lambda_handler"""
+        mock_get_property.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/properties/test-id',
+            'headers': {'Authorization': 'Bearer test-token'}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 200
+        mock_get_property.assert_called_once()
+
+    @patch('lambda_function.update_property')
+    def test_lambda_handler_update_property_integration(self, mock_update_property):
+        """Test full integration of update property through lambda_handler"""
+        mock_update_property.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/properties/test-id',
+            'headers': {'Authorization': 'Bearer test-token'},
+            'body': '{"title": "Updated Title"}'
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 200
+        mock_update_property.assert_called_once()
+
+    @patch('lambda_function.delete_property')
+    def test_lambda_handler_delete_property_integration(self, mock_delete_property):
+        """Test full integration of delete property through lambda_handler"""
+        mock_delete_property.return_value = {'statusCode': 204, 'body': ''}
+        
+        event = {
+            'httpMethod': 'DELETE',
+            'path': '/api/properties/test-id',
+            'headers': {'Authorization': 'Bearer test-token'}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 204
+        mock_delete_property.assert_called_once()
+
+    @patch('lambda_function.get_dashboard_stats')
+    def test_lambda_handler_dashboard_integration(self, mock_get_dashboard):
+        """Test full integration of dashboard through lambda_handler"""
+        mock_get_dashboard.return_value = {'statusCode': 200, 'body': '{}'}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/dashboard',
+            'headers': {'Authorization': 'Bearer test-token'}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 200
+        mock_get_dashboard.assert_called_once()
+
+    def test_lambda_handler_malformed_json(self):
+        """Test lambda_handler with malformed JSON in request body"""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/properties',
+            'headers': {'Authorization': 'Bearer test-token'},
+            'body': 'invalid json'
+        }
+        
+        # This should trigger exception handling in various functions
+        response = lambda_function.lambda_handler(event, {})
+        
+        # Should get a 500 error due to JSON parsing failure
+        assert response['statusCode'] == 500
+
+    def test_lambda_handler_missing_event_fields(self):
+        """Test lambda_handler with missing required event fields"""
+        # Missing httpMethod
+        event = {
+            'path': '/api/properties',
+            'headers': {}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        assert response['statusCode'] == 500
+
+    def test_lambda_handler_empty_body_handling(self):
+        """Test lambda_handler with empty or None body"""
+        event = {
+            'httpMethod': 'POST',
+            'path': '/api/properties',
+            'headers': {'Authorization': 'Bearer test-token'},
+            'body': None
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        assert response['statusCode'] == 500
+
+    def test_lambda_handler_case_insensitive_headers(self):
+        """Test lambda_handler with case-insensitive header handling"""
+        event = {
+            'httpMethod': 'OPTIONS',
+            'path': '/api/properties',
+            'headers': {'authorization': 'Bearer test-token'}  # lowercase
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        assert response['statusCode'] == 200  # CORS should work
+
+    def test_lambda_handler_complex_path_parsing(self):
+        """Test lambda_handler with complex path parsing for loans"""
+        # Test loan update path parsing
+        event = {
+            'httpMethod': 'PUT',
+            'path': '/api/properties/complex-id-123/loans/loan-id-456',
+            'headers': {'Authorization': 'Bearer test-token'}
+        }
+        
+        # Mock the function to avoid actual execution
+        with patch('lambda_function.update_property_loan') as mock_update:
+            mock_update.return_value = {'statusCode': 200, 'body': '{}'}
+            response = lambda_function.lambda_handler(event, {})
+            assert response['statusCode'] == 200
+
+    def test_lambda_handler_path_edge_cases(self):
+        """Test lambda_handler with various path edge cases"""
+        test_cases = [
+            # Empty path segments
+            ('/api/properties//finance', 'GET'),
+            # Very long property IDs
+            (f'/api/properties/{"a" * 100}', 'GET'),
+            # Special characters in IDs
+            ('/api/properties/test_id-with-dashes', 'GET'),
+            # Multiple slashes
+            ('/api/properties/test///finance', 'GET'),
+        ]
+        
+        for path, method in test_cases:
+            event = {
+                'httpMethod': method,
+                'path': path,
+                'headers': {'Authorization': 'Bearer test-token'}
+            }
+            
+            # Should not crash, should return 404 or handle gracefully
+            response = lambda_function.lambda_handler(event, {})
+            assert 'statusCode' in response
