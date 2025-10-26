@@ -15,7 +15,8 @@ def set_env_vars():
         'S3_BUCKET_NAME': 'test-bucket',
         'COGNITO_USER_POOL_ID': 'test-pool-id',
         'COGNITO_CLIENT_ID': 'test-client-id',
-        'AWS_REGION': 'us-east-1'
+        'AWS_REGION': 'us-east-1',
+        'UNIT_TEST_MODE': '1'  # Enable JWT bypass for unit tests
     }
     with patch.dict(os.environ, env_vars):
         yield
