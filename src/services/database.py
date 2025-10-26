@@ -7,17 +7,24 @@ import json
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
+import logging
+
+# Set up structured logging
+logger = logging.getLogger(__name__)
 
 class DatabaseService:
     def __init__(self, table_name: str, region: str = 'us-east-1'):
+        """Initialize DatabaseService with DynamoDB table."""
         self.dynamodb = boto3.resource('dynamodb', region_name=region)
         self.table = self.dynamodb.Table(table_name)
     
     def _get_timestamp(self) -> str:
+        """Get the current UTC timestamp as an ISO string."""
         return datetime.utcnow().isoformat()
     
     # Property operations
     def create_property(self, property_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new property item in DynamoDB."""
         property_id = str(uuid.uuid4())
         owner_id = property_data.get('owner_id', 'default-owner')
         
@@ -36,6 +43,7 @@ class DatabaseService:
         return item
     
     def get_property(self, property_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a property item by its ID from DynamoDB."""
         try:
             response = self.table.get_item(
                 Key={
@@ -44,34 +52,37 @@ class DatabaseService:
                 }
             )
             return response.get('Item')
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error getting property {property_id}: {e}")
             return None
     
     def update_property(self, property_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update an existing property item in DynamoDB."""
         updates['updated_at'] = self._get_timestamp()
-        
-        # Build update expression
-        update_expression = "SET "
-        expression_values = {}
-        
-        for key, value in updates.items():
-            update_expression += f"{key} = :{key}, "
-            expression_values[f":{key}"] = value
-        
-        update_expression = update_expression.rstrip(', ')
-        
-        response = self.table.update_item(
-            Key={
-                'pk': f'PROPERTY#{property_id}',
-                'sk': 'METADATA'
-            },
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues=expression_values,
-            ReturnValues='ALL_NEW'
-        )
-        return response['Attributes']
+        try:
+            # Build update expression
+            update_expression = "SET "
+            expression_values = {}
+            for key, value in updates.items():
+                update_expression += f"{key} = :{key}, "
+                expression_values[f":{key}"] = value
+            update_expression = update_expression.rstrip(', ')
+            response = self.table.update_item(
+                Key={
+                    'pk': f'PROPERTY#{property_id}',
+                    'sk': 'METADATA'
+                },
+                UpdateExpression=update_expression,
+                ExpressionAttributeValues=expression_values,
+                ReturnValues='ALL_NEW'
+            )
+            return response['Attributes']
+        except Exception as e:
+            logger.error(f"Error updating property {property_id}: {e}")
+            return {}
     
     def delete_property(self, property_id: str) -> bool:
+        """Delete a property item from DynamoDB."""
         try:
             self.table.delete_item(
                 Key={
@@ -80,10 +91,12 @@ class DatabaseService:
                 }
             )
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error deleting property {property_id}: {e}")
             return False
     
     def list_properties(self, owner_id: str = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List property items for an owner or all properties from DynamoDB."""
         if owner_id:
             # Query by owner using GSI
             response = self.table.query(

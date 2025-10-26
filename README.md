@@ -161,14 +161,13 @@ AWS_PROFILE=guhae-deployment ./deploy-serverless.sh all
 
 | **Topic**                   | **Link**                                                                 | **Description**                         |
 | --------------------------- | ------------------------------------------------------------------------ | --------------------------------------- |
-| **🔐 Security Setup**       | [docs/SECURITY.md](docs/SECURITY.md)                                     | IAM user creation & managed policies    |
+| **🔒 Security Setup**       | [docs/SECURITY.md](docs/SECURITY.md)                                     | IAM user creation & managed policies    |
 | **🚀 Deployment Guide**     | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                                 | Step-by-step deployment process         |
 | **🌐 S3 Frontend**          | [docs/S3_FRONTEND_IMPLEMENTATION.md](docs/S3_FRONTEND_IMPLEMENTATION.md) | S3-hosted frontend architecture details |
 | **✅ Deployment Readiness** | [DEPLOYMENT_READINESS_CHECK.md](DEPLOYMENT_READINESS_CHECK.md)           | Complete system validation checklist    |
-| **🧪 API Reference**        | [docs/API.md](docs/API.md)                                               | Complete API endpoint documentation     |
-| **🚨 Troubleshooting**      | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)                       | Common issues & solutions               |
-| **🔧 Development**          | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                               | Local development setup                 |
-| **🏗️ Architecture**         | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                             | Detailed system design                  |
+| **🧬 API Reference**        | [docs/API.md](docs/API.md)                                               | Complete API endpoint documentation     |
+| **🧪 Testing Strategy**     | [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)                     | Automated testing and coverage policy   |
+| **📋 Test Cases Reference** | [docs/TEST_CASES_REFERENCE.md](docs/TEST_CASES_REFERENCE.md)             | Explanation of all test cases           |
 
 ## ✨ Key Features
 

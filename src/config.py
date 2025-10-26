@@ -25,7 +25,8 @@ class Config:
         'advanced_monitoring': False,  # Disable CloudWatch custom metrics
         'file_uploads': True,          # Keep S3 uploads
         'user_authentication': False, # Simplified for MVP
-        'multi_tenant': False         # Single tenant for now
+        'multi_tenant': False,        # Single tenant for now
+        'property_image_upload': True # Enable property image upload
     }
     
     @classmethod
@@ -40,6 +41,8 @@ class Config:
     @classmethod
     def is_feature_enabled(cls, feature: str) -> bool:
         """Check if a feature is enabled"""
+        if not isinstance(feature, str):
+            raise TypeError("Feature name must be a string")
         return cls.FEATURES.get(feature, False)
 
 # Export for easy import

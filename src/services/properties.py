@@ -6,12 +6,17 @@ import boto3
 import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+import logging
 
 from .database import DatabaseService
-from ..config import config
+from config import config
+
+# Set up structured logging
+logger = logging.getLogger(__name__)
 
 class PropertyService:
     def __init__(self):
+        """Initialize PropertyService with database and S3 client."""
         aws_config = config.get_aws_config()
         self.db = DatabaseService(
             table_name=aws_config['dynamodb_table'],
@@ -27,6 +32,7 @@ class PropertyService:
             self.bucket_name = None
     
     def create_property(self, property_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new property in the database."""
         """Create a new property"""
         # Set default values for minimal version
         property_data.setdefault('status', 'active')
@@ -39,6 +45,7 @@ class PropertyService:
         return self._format_property_response(property_item)
     
     def get_property(self, property_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a property by its ID."""
         """Get a property by ID"""
         property_item = self.db.get_property(property_id)
         if not property_item:
@@ -47,6 +54,7 @@ class PropertyService:
         return self._format_property_response(property_item)
     
     def update_property(self, property_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update an existing property with new data."""
         """Update a property"""
         try:
             updated_item = self.db.update_property(property_id, updates)
@@ -55,19 +63,23 @@ class PropertyService:
             return None
     
     def delete_property(self, property_id: str) -> bool:
+        """Delete a property from the database."""
         """Delete a property"""
         return self.db.delete_property(property_id)
     
     def list_properties(self, owner_id: str = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List properties for an owner or all properties."""
         """List properties"""
         properties = self.db.list_properties(owner_id=owner_id, limit=limit)
         return [self._format_property_response(prop) for prop in properties]
     
     def get_dashboard_stats(self, owner_id: str = None) -> Dict[str, int]:
+        """Get dashboard statistics for an owner."""
         """Get dashboard statistics"""
         return self.db.get_dashboard_stats(owner_id=owner_id)
     
     def upload_property_image(self, property_id: str, file_data: bytes, filename: str) -> Optional[str]:
+        """Upload a property image to S3 and return its URL."""
         """Upload property image to S3"""
         if not config.is_feature_enabled('file_uploads') or not self.s3_client:
             return None
@@ -90,10 +102,11 @@ class PropertyService:
             return f"https://{self.bucket_name}.s3.{config.AWS_REGION}.amazonaws.com/{s3_key}"
         
         except Exception as e:
-            print(f"Error uploading image: {e}")
+            logger.error(f"Error uploading image: {e}")
             return None
     
     def _format_property_response(self, property_item: Dict[str, Any]) -> Dict[str, Any]:
+        """Format a property item for API response, removing DynamoDB-specific keys."""
         """Format property item for API response"""
         # Remove DynamoDB-specific keys
         response = {k: v for k, v in property_item.items() 
