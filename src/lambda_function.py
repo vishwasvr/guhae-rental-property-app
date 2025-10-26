@@ -207,11 +207,13 @@ def lambda_handler(event, context):
             }
     
     except Exception as e:
+        print(f"Lambda handler error: {str(e)}")
         return {
             'statusCode': 500,
             'headers': headers,
             'body': json.dumps({'error': str(e)})
         }
+
 
 
 def list_properties(event, headers):
@@ -517,6 +519,34 @@ def update_property(property_id, event, headers):
         }
 
 def delete_property(property_id, headers):
+    # Get authenticated user ID
+    owner_id = get_authenticated_user_id({}, headers)  # No event, so pass empty dict
+    if not owner_id:
+        return {
+            'statusCode': 401,
+            'headers': headers,
+            'body': json.dumps({'error': 'Authentication required'})
+        }
+    
+    # Verify ownership
+    property_response = table.get_item(
+        Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'}
+    )
+    
+    if 'Item' not in property_response:
+        return {
+            'statusCode': 404,
+            'headers': headers,
+            'body': json.dumps({'error': 'Property not found'})
+        }
+    
+    if property_response['Item'].get('owner_id') != owner_id:
+        return {
+            'statusCode': 403,
+            'headers': headers,
+            'body': json.dumps({'error': 'Access denied'})
+        }
+    
     table.delete_item(
         Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'}
     )
@@ -668,13 +698,13 @@ def format_property(item):
         return formatted
         
     except Exception as e:
-        print(f"Error formatting property {item.get('id', 'unknown')}: {str(e)}")
+        print(f"Error formatting property {(item or {}).get('id', 'unknown')}: {str(e)}")
         # Return minimal safe format
         return {
-            'id': item.get('id', 'unknown'),
-            'title': item.get('title', 'Unknown Property'),
-            'description': item.get('description', ''),
-            'propertyType': item.get('property_type', 'unknown'),
+            'id': (item or {}).get('id', 'unknown'),
+            'title': (item or {}).get('title', 'Unknown Property'),
+            'description': (item or {}).get('description', ''),
+            'propertyType': (item or {}).get('property_type', 'unknown'),
             'rent': 0,
             'bedrooms': 0,
             'bathrooms': 0,
@@ -690,8 +720,8 @@ def format_property(item):
                 'country': 'US'
             },
             'status': 'active',
-            'createdAt': item.get('created_at', ''),
-            'updatedAt': item.get('updated_at', ''),
+            'createdAt': (item or {}).get('created_at', ''),
+            'updatedAt': (item or {}).get('updated_at', ''),
             'images': []
         }
 
@@ -770,7 +800,7 @@ def handle_login(event, headers):
                 'body': json.dumps(response_data)
             }
             
-        except cognito_client.exceptions.NotAuthorizedException:
+        except Exception:
             return {
                 'statusCode': 401,
                 'headers': headers,
@@ -779,7 +809,6 @@ def handle_login(event, headers):
                     'message': 'Invalid username or password'
                 })
             }
-        except cognito_client.exceptions.UserNotFoundException:
             return {
                 'statusCode': 401,
                 'headers': headers,
@@ -958,13 +987,8 @@ def handle_register(event, headers):
 def get_profile(event, headers):
     """Get user profile information"""
     try:
-        # Get user ID from JWT token (simplified for now)
-        # In production, decode and validate JWT token
-        user_email = event.get('requestContext', {}).get('authorizer', {}).get('claims', {}).get('email')
-        
-        if not user_email:
-            # For now, get from query parameters or headers as fallback
-            user_email = event.get('queryStringParameters', {}).get('email') if event.get('queryStringParameters') else None
+        # Get authenticated user ID
+        user_email = get_authenticated_user_id(event, headers)
         
         if not user_email:
             return {
@@ -1048,8 +1072,8 @@ def update_profile(event, headers):
         # Parse request body
         body = json.loads(event.get('body', '{}'))
         
-        # Get user email (in production, extract from JWT)
-        user_email = body.get('email') or event.get('queryStringParameters', {}).get('email')
+        # Get authenticated user ID
+        user_email = get_authenticated_user_id(event, headers)
         
         if not user_email:
             return {
@@ -1486,9 +1510,9 @@ def delete_property_loan(property_id, loan_id, headers):
         )
         
         return {
-            'statusCode': 200,
+            'statusCode': 204,
             'headers': headers,
-            'body': json.dumps({'message': 'Loan deleted successfully'})
+            'body': ''
         }
         
     except Exception as e:

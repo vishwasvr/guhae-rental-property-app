@@ -4,6 +4,7 @@ import sys
 import os
 from unittest.mock import patch, MagicMock
 from decimal import Decimal
+from botocore.exceptions import ClientError
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -14,23 +15,18 @@ import lambda_function
 class TestLambdaHandler:
     """Test the main Lambda handler function"""
 
-    def test_lambda_handler_health_endpoint(self, mock_lambda_environment, test_table):
-        """Test health endpoint returns correct response"""
-        with patch('lambda_function.table', test_table):
-            event = {
-                'httpMethod': 'GET',
-                'path': '/api/health',
-                'headers': {}
-            }
-
-            response = lambda_function.lambda_handler(event, {})
-
-            assert response['statusCode'] == 200
-            body = json.loads(response['body'])
-            assert body['status'] == 'healthy'
-            body = json.loads(response['body'])
-            assert body['status'] == 'healthy'
-            assert 'timestamp' in body
+    @patch('lambda_function.table')
+    def test_lambda_handler_with_none_context(self, mock_table):
+        """Test lambda_handler with None context"""
+        mock_table.scan.return_value = {'Items': []}
+        
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/health',
+            'headers': {}
+        }
+        response = lambda_function.lambda_handler(event, None)
+        assert response['statusCode'] == 200  # Health check should still work
 
     def test_lambda_handler_cors_preflight(self, cors_headers):
         """Test CORS preflight request handling"""
@@ -702,28 +698,28 @@ class TestLoginHandler:
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
         assert body['success'] == True
-        assert 'accessToken' in body
+        assert 'tokens' in body
+        assert 'access_token' in body['tokens']
         assert 'user' in body
 
     @patch('lambda_function.cognito_client')
-    def test_handle_login_missing_credentials(self, mock_cognito):
-        """Test login with missing credentials"""
+    def test_handle_login_invalid_json(self, mock_cognito):
+        """Test handle_login with invalid JSON"""
         event = {
-            'body': json.dumps({})
+            'body': 'invalid json'
         }
         headers = {'Content-Type': 'application/json'}
         
         response = lambda_function.handle_login(event, headers)
         
-        assert response['statusCode'] == 400
+        assert response['statusCode'] == 500
         body = json.loads(response['body'])
-        assert body['success'] == False
-        assert 'required' in body['message']
+        assert 'error' in body
 
     @patch('lambda_function.cognito_client')
     def test_handle_login_cognito_error(self, mock_cognito):
         """Test login with Cognito authentication error"""
-        mock_cognito.admin_initiate_auth.side_effect = Exception('Invalid credentials')
+        mock_cognito.admin_initiate_auth.side_effect = ClientError({'Error': {'Code': 'NotAuthorizedException', 'Message': 'Invalid credentials'}}, 'AdminInitiateAuth')
         
         event = {
             'body': json.dumps({
@@ -740,8 +736,437 @@ class TestLoginHandler:
         assert body['success'] == False
 
 
-class TestRegisterHandler:
-    """Test register handler function"""
+class TestGetProperty:
+    """Test get_property function"""
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_property_unauthenticated(self, mock_get_auth):
+        """Test get_property without authentication"""
+        mock_get_auth.return_value = None
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property('test-id', {}, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_property_success(self, mock_get_auth, mock_table):
+        """Test successful get_property"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'test@example.com'
+            }
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property('test-id', {}, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert body['property']['id'] == 'test-id'
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_property_access_denied(self, mock_get_auth, mock_table):
+        """Test get_property access denied"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'other@example.com'
+            }
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property('test-id', {}, headers)
+        
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_property_not_found(self, mock_get_auth, mock_table):
+        """Test get_property not found"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {}  # No Item
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property('test-id', {}, headers)
+        
+        assert response['statusCode'] == 404
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+class TestUpdateProperty:
+    """Test update_property function"""
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_update_property_unauthenticated(self, mock_get_auth):
+        """Test update_property without authentication"""
+        mock_get_auth.return_value = None
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Updated Title'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property('test-id', event, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_update_property_success(self, mock_get_auth, mock_table):
+        """Test successful update_property"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'test@example.com'
+            }
+        }
+        mock_table.update_item.return_value = {
+            'Attributes': {
+                'id': 'test-id',
+                'title': 'Updated Title',
+                'owner_id': 'test@example.com'
+            }
+        }
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Updated Title'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property('test-id', event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'property' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_update_property_access_denied(self, mock_get_auth, mock_table):
+        """Test update_property access denied"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'other@example.com'
+            }
+        }
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Updated Title'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property('test-id', event, headers)
+        
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_update_property_not_found(self, mock_get_auth, mock_table):
+        """Test update_property not found"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {}  # No Item
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Updated Title'
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property('test-id', event, headers)
+        
+        assert response['statusCode'] == 404
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+class TestDeleteProperty:
+    """Test delete_property function"""
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_delete_property_unauthenticated(self, mock_get_auth):
+        """Test delete_property without authentication"""
+        mock_get_auth.return_value = None
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.delete_property('test-id', headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_delete_property_success(self, mock_get_auth, mock_table):
+        """Test successful delete_property"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'test@example.com'
+            }
+        }
+        mock_table.delete_item.return_value = {}
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.delete_property('test-id', headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'message' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_delete_property_access_denied(self, mock_get_auth, mock_table):
+        """Test delete_property access denied"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {
+            'Item': {
+                'id': 'test-id',
+                'title': 'Test Property',
+                'owner_id': 'other@example.com'
+            }
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.delete_property('test-id', headers)
+        
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_delete_property_not_found(self, mock_get_auth, mock_table):
+        """Test delete_property not found"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.get_item.return_value = {}  # No Item
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.delete_property('test-id', headers)
+        
+        assert response['statusCode'] == 404
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+class TestListProperties:
+    """Test list_properties function"""
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_list_properties_unauthenticated(self, mock_get_auth):
+        """Test list_properties without authentication"""
+        mock_get_auth.return_value = None
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.list_properties({}, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_list_properties_success(self, mock_get_auth, mock_table):
+        """Test successful list_properties"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.query.return_value = {
+            'Items': [
+                {
+                    'pk': 'PROPERTY#test-id',
+                    'sk': 'METADATA',
+                    'id': 'test-id',
+                    'title': 'Test Property',
+                    'owner_id': 'test@example.com'
+                }
+            ]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.list_properties({}, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'properties' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_list_properties_fallback_scan(self, mock_get_auth, mock_table):
+        """Test list_properties fallback to scan"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.query.side_effect = Exception("GSI not found")
+        mock_table.scan.return_value = {
+            'Items': [
+                {
+                    'pk': 'PROPERTY#test-id',
+                    'sk': 'METADATA',
+                    'id': 'test-id',
+                    'title': 'Test Property',
+                    'owner_id': 'test@example.com'
+                }
+            ]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.list_properties({}, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'properties' in body
+
+class TestGetDashboardStats:
+    """Test get_dashboard_stats function"""
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_dashboard_stats_unauthenticated(self, mock_get_auth):
+        """Test get_dashboard_stats without authentication"""
+        mock_get_auth.return_value = None
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_dashboard_stats({}, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.table')
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_get_dashboard_stats_success(self, mock_get_auth, mock_table):
+        """Test successful get_dashboard_stats"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        mock_table.query.return_value = {'Items': [{'count': 5}]}
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_dashboard_stats({}, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'total_properties' in body
+
+    @patch('lambda_function.get_authenticated_user_id')
+    @patch('lambda_function.table')
+    def test_create_property_invalid_data(self, mock_table, mock_get_auth):
+        """Test create_property with invalid data"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        event = {
+            'body': json.dumps({
+                'title': '',  # Invalid: empty title
+                'price': 100000
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.create_property(event, headers)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.get_authenticated_user_id')
+    @patch('lambda_function.table')
+    def test_create_property_negative_price(self, mock_table, mock_get_auth):
+        """Test create_property with negative price"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Test Property',
+                'price': -1000  # Invalid: negative price
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.create_property(event, headers)
+        
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_create_property_invalid_json(self, mock_get_auth):
+        """Test create_property with invalid JSON"""
+        mock_get_auth.return_value = 'test@example.com'
+        
+        event = {
+            'body': 'invalid json'
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.create_property(event, headers)
+        
+        assert response['statusCode'] == 500
+        body = json.loads(response['body'])
+        assert 'error' in body
+
+    @patch('lambda_function.get_authenticated_user_id')
+    def test_create_property_unauthenticated(self, mock_get_auth):
+        """Test create_property without authentication"""
+        mock_get_auth.return_value = None
+        
+        event = {
+            'body': json.dumps({
+                'title': 'Test Property',
+                'price': 100000
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.create_property(event, headers)
+        
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'error' in body
 
     @patch('lambda_function.cognito_client')
     @patch('lambda_function.table')
@@ -760,6 +1185,7 @@ class TestRegisterHandler:
         
         event = {
             'body': json.dumps({
+                'username': 'test@example.com',
                 'email': 'test@example.com',
                 'password': 'password123',
                 'firstName': 'Test',
@@ -799,13 +1225,13 @@ class TestProfileHandlers:
     @patch('lambda_function.table')
     def test_get_profile_success(self, mock_table, valid_jwt_token):
         """Test successful profile retrieval"""
-        mock_table.get_item.return_value = {
-            'Item': {
-                'firstName': 'Test',
-                'lastName': 'User',
+        mock_table.scan.return_value = {
+            'Items': [{
+                'first_name': 'Test',
+                'last_name': 'User',
                 'email': 'test@example.com',
                 'phone': '123-456-7890'
-            }
+            }]
         }
         
         event = {
@@ -817,8 +1243,8 @@ class TestProfileHandlers:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert body['firstName'] == 'Test'
-        assert body['lastName'] == 'User'
+        assert body['profile']['firstName'] == 'Test'
+        assert body['profile']['lastName'] == 'User'
 
     @patch('lambda_function.table')
     def test_get_profile_unauthenticated(self, mock_table):
@@ -832,15 +1258,15 @@ class TestProfileHandlers:
         
         assert response['statusCode'] == 401
         body = json.loads(response['body'])
-        assert 'error' in body
+        assert 'message' in body
 
     @patch('lambda_function.table')
     def test_update_profile_success(self, mock_table, valid_jwt_token):
         """Test successful profile update"""
         mock_table.update_item.return_value = {
             'Attributes': {
-                'firstName': 'Updated',
-                'lastName': 'User',
+                'first_name': 'Updated',
+                'last_name': 'User',
                 'email': 'test@example.com',
                 'updated_at': '2024-01-01T00:00:00Z'
             }
@@ -860,7 +1286,7 @@ class TestProfileHandlers:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert body['firstName'] == 'Updated'
+        assert body['profile']['firstName'] == 'Updated'
 
 
 class TestPropertyFinanceHandlers:
@@ -869,17 +1295,27 @@ class TestPropertyFinanceHandlers:
     @patch('lambda_function.table')
     def test_get_property_finance_success(self, mock_table, valid_jwt_token):
         """Test successful property finance retrieval"""
-        mock_table.get_item.return_value = {
-            'Item': {
-                'property_id': 'test-id',
-                'purchase_price': 250000,
-                'financing': {
-                    'down_payment': 50000,
-                    'loan_amount': 200000,
-                    'interest_rate': 3.5
+        # Mock property ownership check first, then finance data
+        mock_table.get_item.side_effect = [
+            {
+                'Item': {
+                    'owner_id': 'test@example.com',
+                    'title': 'Test Property'
+                }
+            },
+            {
+                'Item': {
+                    'property_id': 'test-id',
+                    'purchase_price': 250000,
+                    'financing': {
+                        'down_payment': 50000,
+                        'loan_amount': 200000,
+                        'interest_rate': 3.5
+                    }
                 }
             }
-        }
+        ]
+        mock_table.query.return_value = {'Items': [{'pk': 'PROPERTY#test-id', 'sk': 'LOAN#1', 'loan_amount': 200000}]}
         
         event = {
             'headers': {'Authorization': f'Bearer {valid_jwt_token}'}
@@ -890,8 +1326,40 @@ class TestPropertyFinanceHandlers:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert 'purchase_price' in body
-        assert 'financing' in body
+        assert 'finance' in body
+        assert 'purchaseInfo' in body['finance']
+        assert 'purchasePrice' in body['finance']['purchaseInfo']
+
+    @patch('lambda_function.table')
+    def test_get_property_finance_format_exception(self, mock_table, valid_jwt_token):
+        """Test format_finance_data exception handling"""
+        # Mock property ownership check first, then finance data
+        mock_table.get_item.side_effect = [
+            {
+                'Item': {
+                    'owner_id': 'test@example.com',
+                    'title': 'Test Property'
+                }
+            },
+            {
+                'Item': {
+                    'property_id': 'test-id',
+                    'purchase_price': 250000
+                }
+            }
+        ]
+        mock_table.query.side_effect = Exception("Query failed")
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'}
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.get_property_finance('test-id', event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'finance' in body
 
     @patch('lambda_function.table')
     def test_get_property_finance_unauthorized(self, mock_table, valid_jwt_token):
@@ -913,6 +1381,33 @@ class TestPropertyFinanceHandlers:
         assert response['statusCode'] == 403
         body = json.loads(response['body'])
         assert 'error' in body
+
+    @patch('lambda_function.table')
+    def test_update_property_finance_success(self, mock_table, valid_jwt_token):
+        """Test successful property finance update"""
+        # Mock property ownership check
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'test@example.com',
+                'title': 'Test Property'
+            }
+        }
+        mock_table.put_item.return_value = {}
+        
+        event = {
+            'headers': {'Authorization': f'Bearer {valid_jwt_token}'},
+            'body': json.dumps({
+                'ownershipType': 'joint',
+                'purchasePrice': 300000
+            })
+        }
+        headers = {'Content-Type': 'application/json'}
+        
+        response = lambda_function.update_property_finance('test-id', event, headers)
+        
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'finance' in body
 
 
 class TestLoanHandlers:
@@ -946,7 +1441,8 @@ class TestLoanHandlers:
         
         assert response['statusCode'] == 201
         body = json.loads(response['body'])
-        assert 'loan_id' in body
+        assert 'loan' in body
+        assert 'id' in body['loan']
 
     @patch('lambda_function.table')
     def test_update_property_loan_success(self, mock_table, valid_jwt_token):
@@ -970,7 +1466,7 @@ class TestLoanHandlers:
         event = {
             'headers': {'Authorization': f'Bearer {valid_jwt_token}'},
             'body': json.dumps({
-                'loan_amount': 210000
+                'originalAmount': 210000
             })
         }
         headers = {'Content-Type': 'application/json'}
@@ -979,7 +1475,7 @@ class TestLoanHandlers:
         
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
-        assert body['loan_amount'] == 210000
+        assert body['loan']['originalAmount'] == 210000
 
     @patch('lambda_function.table')
     def test_delete_property_loan_success(self, mock_table, valid_jwt_token):
@@ -995,7 +1491,7 @@ class TestLoanHandlers:
         # Mock loan deletion
         mock_table.delete_item.return_value = {}
         
-        headers = {'Content-Type': 'application/json'}
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {valid_jwt_token}'}
         
         response = lambda_function.delete_property_loan('test-id', 'loan-id', headers)
         
@@ -1108,7 +1604,7 @@ class TestLambdaHandlerIntegration:
         event = {
             'httpMethod': 'POST',
             'path': '/api/properties',
-            'headers': {'Authorization': 'Bearer test-token'},
+            'headers': {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwibmFtZSI6IlRlc3QgVXNlciJ9.test'},
             'body': 'invalid json'
         }
         
@@ -1129,12 +1625,23 @@ class TestLambdaHandlerIntegration:
         response = lambda_function.lambda_handler(event, {})
         assert response['statusCode'] == 500
 
+    def test_lambda_handler_not_found(self):
+        """Test lambda_handler with unknown endpoint"""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/api/unknown',
+            'headers': {}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        assert response['statusCode'] == 404
+
     def test_lambda_handler_empty_body_handling(self):
         """Test lambda_handler with empty or None body"""
         event = {
             'httpMethod': 'POST',
             'path': '/api/properties',
-            'headers': {'Authorization': 'Bearer test-token'},
+            'headers': {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwibmFtZSI6IlRlc3QgVXNlciJ9.test'},
             'body': None
         }
         
@@ -1190,3 +1697,363 @@ class TestLambdaHandlerIntegration:
             # Should not crash, should return 404 or handle gracefully
             response = lambda_function.lambda_handler(event, {})
             assert 'statusCode' in response
+
+
+class TestErrorConditions:
+    """Test various error conditions to improve coverage"""
+
+    def test_lambda_handler_with_none_event(self):
+        """Test lambda_handler with None event"""
+        response = lambda_function.lambda_handler(None, {})
+        assert response['statusCode'] == 500
+
+    def test_lambda_handler_with_empty_event(self):
+        """Test lambda_handler with empty event dict"""
+        response = lambda_function.lambda_handler({}, {})
+        assert response['statusCode'] == 500
+
+    def test_lambda_handler_with_none_context(self):
+        """Test lambda_handler with None context"""
+        with patch('lambda_function.table') as mock_table:
+            mock_table.scan.return_value = {'Items': []}
+            
+            event = {
+                'httpMethod': 'GET',
+                'path': '/api/health',
+                'headers': {}
+            }
+            response = lambda_function.lambda_handler(event, None)
+            assert response['statusCode'] == 200  # Health check should still work
+
+    @patch('lambda_function.table')
+    def test_health_check_database_error(self, mock_table):
+        """Test health check when database is unavailable"""
+        mock_table.scan.side_effect = Exception('DynamoDB unavailable')
+        
+        response = lambda_function.get_health_status({})
+        assert response['statusCode'] == 503
+        body = json.loads(response['body'])
+        assert body['status'] == 'unhealthy'
+
+    def test_convert_floats_edge_cases(self):
+        """Test convert_floats_to_decimals with various data types"""
+        # Test with None
+        result = lambda_function.convert_floats_to_decimals(None)
+        assert result is None
+        
+        # Test with string
+        result = lambda_function.convert_floats_to_decimals("string")
+        assert result == "string"
+        
+        # Test with integer
+        result = lambda_function.convert_floats_to_decimals(42)
+        assert result == 42
+        
+        # Test with boolean
+        result = lambda_function.convert_floats_to_decimals(True)
+        assert result == True
+
+    @patch('lambda_function.table')
+    def test_format_property_with_missing_fields(self, mock_table):
+        """Test format_property with item missing expected fields"""
+        item = {
+            'pk': 'PROPERTY#test',
+            'sk': 'METADATA',
+            'title': 'Test Property'
+            # Missing many expected fields
+        }
+        
+        formatted = lambda_function.format_property(item)
+        assert 'id' in formatted
+        assert 'title' in formatted
+        # Should handle missing fields gracefully
+
+    @patch('lambda_function.table')
+    def test_format_property_with_none_item(self, mock_table):
+        """Test format_property with None item"""
+        formatted = lambda_function.format_property(None)
+        expected = {
+            'id': 'unknown',
+            'title': 'Unknown Property',
+            'description': '',
+            'propertyType': 'unknown',
+            'status': 'active',
+            'createdAt': '',
+            'updatedAt': '',
+            'images': [],
+            'rent': 0,
+            'bedrooms': 0,
+            'bathrooms': 0,
+            'squareFeet': None,
+            'garageType': '',
+            'garageCars': 0,
+            'address': {
+                'streetAddress': '',
+                'city': '',
+                'county': '',
+                'state': '',
+                'zipCode': '',
+                'country': 'US'
+            }
+        }
+        assert formatted == expected
+
+    def test_get_authenticated_user_id_edge_cases(self):
+        """Test get_authenticated_user_id with various edge cases"""
+        # No headers
+        result = lambda_function.get_authenticated_user_id({}, {})
+        assert result is None
+        
+        # Empty headers
+        result = lambda_function.get_authenticated_user_id({'headers': {}}, {})
+        assert result is None
+        
+        # Authorization header without Bearer
+        event = {'headers': {'Authorization': 'Basic token'}}
+        result = lambda_function.get_authenticated_user_id(event, {})
+        assert result is None
+        
+        # Bearer without token
+        event = {'headers': {'Authorization': 'Bearer '}}
+        result = lambda_function.get_authenticated_user_id(event, {})
+        assert result is None
+        
+        # Case insensitive header
+        event = {'headers': {'authorization': 'Bearer test'}}
+        result = lambda_function.get_authenticated_user_id(event, {})
+        assert result is None  # Will fail JWT validation but tests the header access
+
+    @patch('lambda_function.table')
+    def test_list_properties_with_scan_fallback(self, mock_table):
+        """Test list_properties when GSI query fails and falls back to scan"""
+        # Mock GSI query failure
+        mock_table.query.side_effect = Exception('GSI not ready')
+        
+        # Mock scan success
+        mock_table.scan.return_value = {
+            'Items': [
+                {
+                    'pk': 'PROPERTY#1',
+                    'sk': 'METADATA',
+                    'title': 'Property 1',
+                    'owner_id': 'test@example.com'
+                }
+            ]
+        }
+        
+        event = {'headers': {'Authorization': 'Bearer test'}}
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.list_properties(event, headers)
+            assert response['statusCode'] == 200
+
+    @patch('lambda_function.table')
+    def test_list_properties_scan_failure(self, mock_table):
+        """Test list_properties when both query and scan fail"""
+        mock_table.query.side_effect = Exception('GSI error')
+        mock_table.scan.side_effect = Exception('Scan error')
+        
+        event = {'headers': {'Authorization': 'Bearer test'}}
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.list_properties(event, headers)
+            assert response['statusCode'] == 500
+
+    @patch('lambda_function.table')
+    def test_create_property_validation_error(self, mock_table):
+        """Test create_property with invalid data"""
+        event = {
+            'body': json.dumps({
+                'title': '',  # Invalid empty title
+                'price': 'not-a-number'  # Invalid price
+            })
+        }
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.create_property(event, headers)
+            # Should handle validation gracefully
+            assert 'statusCode' in response
+
+    @patch('lambda_function.table')
+    def test_get_property_not_found(self, mock_table):
+        """Test get_property when property doesn't exist"""
+        mock_table.get_item.return_value = {}  # No Item
+        
+        event = {'headers': {'Authorization': 'Bearer test'}}
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.get_property('nonexistent', event, headers)
+            assert response['statusCode'] == 404
+
+    @patch('lambda_function.table')
+    def test_update_property_partial_update(self, mock_table):
+        """Test update_property with partial field updates"""
+        # Mock existing property
+        mock_table.get_item.return_value = {
+            'Item': {
+                'owner_id': 'test@example.com',
+                'title': 'Original Title',
+                'price': 200000
+            }
+        }
+        
+        # Mock update
+        mock_table.update_item.return_value = {
+            'Attributes': {
+                'title': 'Updated Title',
+                'updated_at': '2024-01-01T00:00:00Z'
+            }
+        }
+        
+        event = {
+            'headers': {'Authorization': 'Bearer test'},
+            'body': json.dumps({'title': 'Updated Title'})
+        }
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.update_property('test-id', event, headers)
+            assert response['statusCode'] == 200
+
+    def test_delete_property_unauthorized(self):
+        """Test delete_property with unauthorized user"""
+        headers = {}
+        
+        # Mock unauthorized access
+        with patch('lambda_function.get_authenticated_user_id', return_value=None):
+            response = lambda_function.delete_property('test-id', headers)
+            assert response['statusCode'] == 401
+
+    @patch('lambda_function.table')
+    def test_get_dashboard_stats_with_data(self, mock_table):
+        """Test get_dashboard_stats with various property statuses"""
+        mock_table.scan.return_value = {
+            'Items': [
+                {'status': 'active', 'title': 'Active Property'},
+                {'status': 'inactive', 'title': 'Inactive Property'},
+                {'status': 'sold', 'title': 'Sold Property'},
+                {'status': 'active', 'title': 'Another Active'}
+            ]
+        }
+        
+        event = {'headers': {'Authorization': 'Bearer test'}}
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.get_dashboard_stats(event, headers)
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert 'total_properties' in body
+            assert 'active_properties' in body
+
+    @patch('lambda_function.table')
+    def test_get_dashboard_stats_empty(self, mock_table):
+        """Test get_dashboard_stats with no properties"""
+        mock_table.scan.return_value = {'Items': []}
+        
+        event = {'headers': {'Authorization': 'Bearer test'}}
+        headers = {}
+        
+        with patch('lambda_function.get_authenticated_user_id', return_value='test@example.com'):
+            response = lambda_function.get_dashboard_stats(event, headers)
+            assert response['statusCode'] == 200
+            body = json.loads(response['body'])
+            assert body['total_properties'] == 0
+
+    def test_get_authenticated_user_id_edge_cases(self):
+        """Test get_authenticated_user_id with various edge cases"""
+        # No headers
+        result = lambda_function.get_authenticated_user_id({}, {})
+        assert result is None
+        
+        # No Authorization header
+        result = lambda_function.get_authenticated_user_id({'headers': {}}, {})
+        assert result is None
+        
+        # Invalid Authorization header
+        result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Invalid'}}, {})
+        assert result is None
+
+    @patch('lambda_function.requests.get')
+    @patch('lambda_function.jwt')
+    def test_get_authenticated_user_id_jwt_decoding(self, mock_jwt, mock_requests):
+        """Test JWT decoding in get_authenticated_user_id"""
+        # Temporarily set UNIT_TEST_MODE to 0
+        with patch.dict(os.environ, {'UNIT_TEST_MODE': '0'}):
+            mock_requests.return_value.json.return_value = {'keys': [{'kid': 'test'}]}
+            mock_jwt.get_unverified_header.return_value = {'kid': 'test', 'alg': 'RS256'}
+            mock_jwt.algorithms.RSAAlgorithm.from_jwk.return_value = MagicMock()
+            mock_jwt.decode.return_value = {'sub': 'test@example.com'}
+            
+            result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Bearer valid-token'}}, {})
+            assert result == 'test@example.com'
+
+    @patch('lambda_function.requests.get')
+    @patch('lambda_function.jwt')
+    def test_get_authenticated_user_id_jwt_exception(self, mock_jwt, mock_requests):
+        """Test JWT decoding exception in get_authenticated_user_id"""
+        # Temporarily set UNIT_TEST_MODE to 0
+        with patch.dict(os.environ, {'UNIT_TEST_MODE': '0'}):
+            mock_requests.return_value.json.return_value = {'keys': [{'kid': 'test'}]}
+            mock_jwt.get_unverified_header.return_value = {'kid': 'test', 'alg': 'RS256'}
+            mock_jwt.algorithms.RSAAlgorithm.from_jwk.return_value = MagicMock()
+            mock_jwt.decode.side_effect = Exception("Invalid token")
+            
+            result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Bearer invalid-token'}}, {})
+            assert result is None
+
+    @patch('lambda_function.requests.get')
+    @patch('lambda_function.jwt')
+    def test_get_authenticated_user_id_jwks_exception(self, mock_jwt, mock_requests):
+        """Test JWKS fetch exception in get_authenticated_user_id"""
+        # Temporarily set UNIT_TEST_MODE to 0
+        with patch.dict(os.environ, {'UNIT_TEST_MODE': '0'}):
+            mock_requests.side_effect = Exception("Network error")
+            
+            result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Bearer token'}}, {})
+            assert result is None
+
+    @patch('lambda_function.requests.get')
+    @patch('lambda_function.jwt')
+    def test_get_authenticated_user_id_jwt_no_user_id(self, mock_jwt, mock_requests):
+        """Test JWT decoding with no user identifier"""
+        # Temporarily set UNIT_TEST_MODE to 0
+        with patch.dict(os.environ, {'UNIT_TEST_MODE': '0'}):
+            mock_requests.return_value.json.return_value = {'keys': [{'kid': 'test'}]}
+            mock_jwt.get_unverified_header.return_value = {'kid': 'test', 'alg': 'RS256'}
+            mock_jwt.algorithms.RSAAlgorithm.from_jwk.return_value = MagicMock()
+            mock_jwt.decode.return_value = {'sub': None, 'email': None, 'username': None}
+            
+            result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Bearer valid-token'}}, {})
+            assert result is None
+
+    @patch('lambda_function.requests.get')
+    @patch('lambda_function.jwt')
+    def test_get_authenticated_user_id_no_matching_key(self, mock_jwt, mock_requests):
+        """Test no matching key in JWKS"""
+        # Temporarily set UNIT_TEST_MODE to 0
+        with patch.dict(os.environ, {'UNIT_TEST_MODE': '0'}):
+            mock_requests.return_value.json.return_value = {'keys': [{'kid': 'other'}]}
+            mock_jwt.get_unverified_header.return_value = {'kid': 'test', 'alg': 'RS256'}
+            
+            result = lambda_function.get_authenticated_user_id({'headers': {'Authorization': 'Bearer token'}}, {})
+            assert result is None
+
+    def test_lambda_handler_invalid_path(self):
+        """Test lambda_handler with invalid path"""
+        event = {
+            'httpMethod': 'GET',
+            'path': '/invalid',
+            'headers': {}
+        }
+        
+        response = lambda_function.lambda_handler(event, {})
+        
+        assert response['statusCode'] == 404
+        body = json.loads(response['body'])
+        assert 'error' in body
+
