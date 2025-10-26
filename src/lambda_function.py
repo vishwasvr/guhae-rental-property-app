@@ -18,6 +18,35 @@ bucket_name = os.environ['S3_BUCKET_NAME']
 user_pool_id = os.environ['COGNITO_USER_POOL_ID']
 client_id = os.environ['COGNITO_CLIENT_ID']
 
+# =============================================================================
+# SECURITY TEMPLATE - REQUIRED for all user-data endpoints
+# =============================================================================
+"""
+SECURITY CHECKLIST - Apply to ALL endpoints that access/modify user data:
+
+1. ✅ AUTHENTICATION: Call get_authenticated_user_id() first
+2. ✅ AUTHORIZATION: Verify resource ownership before any operation  
+3. ✅ INPUT VALIDATION: Validate and sanitize all input data
+4. ✅ ERROR HANDLING: Don't leak sensitive information in errors
+
+Template for secure property endpoints:
+```python
+def secure_property_endpoint(property_id, event, headers):
+    # 1. AUTHENTICATION
+    owner_id = get_authenticated_user_id(event, headers)
+    if not owner_id:
+        return {'statusCode': 401, 'body': json.dumps({'error': 'Authentication required'})}
+    
+    # 2. AUTHORIZATION - Verify ownership
+    property_response = table.get_item(Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'})
+    if property_response['Item'].get('owner_id') != owner_id:
+        return {'statusCode': 403, 'body': json.dumps({'error': 'Access denied'})}
+    
+    # 3. OPERATION - Safe to proceed
+```
+"""
+# =============================================================================
+
 def convert_floats_to_decimals(obj):
     """Recursively convert float values to Decimal for DynamoDB compatibility."""
     if isinstance(obj, dict):
@@ -328,6 +357,35 @@ def get_property(property_id, event, headers):
 def update_property(property_id, event, headers):
     try:
         print(f"Starting update_property for ID: {property_id}")
+        
+        # Get authenticated user ID
+        owner_id = get_authenticated_user_id(event, headers)
+        if not owner_id:
+            return {
+                'statusCode': 401,
+                'headers': headers,
+                'body': json.dumps({'error': 'Authentication required'})
+            }
+        
+        # First verify property ownership
+        property_response = table.get_item(
+            Key={'pk': f'PROPERTY#{property_id}', 'sk': 'METADATA'}
+        )
+        
+        if 'Item' not in property_response:
+            return {
+                'statusCode': 404,
+                'headers': headers,
+                'body': json.dumps({'error': 'Property not found'})
+            }
+        
+        if property_response['Item'].get('owner_id') != owner_id:
+            return {
+                'statusCode': 403,
+                'headers': headers,
+                'body': json.dumps({'error': 'Access denied - property not owned by user'})
+            }
+        
         data = json.loads(event['body'])
         print(f"Update data received: {data}")
         

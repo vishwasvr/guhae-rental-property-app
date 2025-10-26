@@ -163,9 +163,7 @@
     {
       "Sid": "CognitoOperations",
       "Effect": "Allow",
-      "Action": [
-        "cognito-idp:*"
-      ],
+      "Action": ["cognito-idp:*"],
       "Resource": "*"
     }
   ]

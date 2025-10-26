@@ -329,12 +329,16 @@ class PropertyDetailManager {
     const modal = new bootstrap.Modal(
       document.getElementById("editPropertyModal")
     );
-    
+
     // Populate the form after the modal is fully shown
-    modal.addEventListener('shown.bs.modal', () => {
-      this.populateEditForm();
-    }, { once: true });
-    
+    modal.addEventListener(
+      "shown.bs.modal",
+      () => {
+        this.populateEditForm();
+      },
+      { once: true }
+    );
+
     modal.show();
   }
 
@@ -440,14 +444,16 @@ class PropertyDetailManager {
         squareFeet:
           parseInt(document.getElementById("editSquareFeet").value) || null,
 
-        // Address information
-        streetAddress: document
-          .getElementById("editStreetAddress")
-          .value.trim(),
-        city: document.getElementById("editCity").value.trim(),
-        county: document.getElementById("editCounty").value.trim(),
-        state: document.getElementById("editState").value,
-        zipCode: document.getElementById("editZipCode").value.trim(),
+        // Address information - structured as expected by Property constructor
+        address: {
+          streetAddress: document
+            .getElementById("editStreetAddress")
+            .value.trim(),
+          city: document.getElementById("editCity").value.trim(),
+          county: document.getElementById("editCounty").value.trim(),
+          state: document.getElementById("editState").value,
+          zipCode: document.getElementById("editZipCode").value.trim(),
+        },
 
         // Garage information
         garageType: document.getElementById("editGarageType").value,
@@ -456,6 +462,7 @@ class PropertyDetailManager {
       };
 
       console.log("Form data collected:", formData);
+      console.log("Address in form data:", formData.address);
 
       // Show loading state
       const saveBtn = document.getElementById("savePropertyBtn");
