@@ -3,7 +3,7 @@
 // Configuration
 const CONFIG = {
   API_BASE_URL:
-    "https://3ocjvh7hwj.execute-api.us-east-1.amazonaws.com/prod/api",
+    "https://exs79pbewg.execute-api.us-east-1.amazonaws.com/prod/api",
   STORAGE_KEYS: {
     ACCESS_TOKEN: "accessToken",
     ID_TOKEN: "idToken",
